@@ -9,10 +9,8 @@ import numpy as np
 import threading
 import queue
 import matplotlib.pyplot as plt
-# for future maybe, alternatively
-# import mlagents
-# import gym
-import obstacle_tower_env
+
+import gym
 
 # import ppo
 from PPO import PPO
@@ -28,10 +26,18 @@ from Worker import Worker
 ## because its short and doesnt do anything extra
 ## Next step would be to implement curiosity. But this should be the minimal baseline because thats already implemented in the Unity MLagents toolkit...<
 
-OBS_DIM = 84*84*3
-ACTION_DIM = 54 # ALSO QUESTIONABLE IF THATS A GOOD IDEA -> LOOK AT WORK HOW TO DEAL WITH LARGE ACTION SPACE...
+env = gym.make('CartPole-v0')
 
-EPISODE_MAX = 1000
+
+OBS_DIM = env.observation_space.shape
+
+
+if(isinstance(env.action_space,gym.spaces.Discrete)):
+  ACTION_DIM = env.action_space.n
+ 
+
+
+EPISODE_MAX = 100
 MIN_BATCH_SIZE = 64
 
 NUMBER_OF_WORKERS = 4
@@ -43,17 +49,18 @@ STATE_LATENT_SHAPE = 64
 # if __name__=='__main__':
 tf.logging.set_verbosity(tf.logging.INFO)
 
-
-
 UPDATE_EVENT, ROLLING_EVENT = threading.Event(), threading.Event()
 UPDATE_EVENT.clear()
 ROLLING_EVENT.set()
 COORD = tf.train.Coordinator()
 QUEUE = queue.Queue()
 
-GLOBAL_PPO = PPO(STATE_LATENT_SHAPE,OBS_DIM,ACTION_DIM,UPDATE_EVENT,ROLLING_EVENT,COORD,QUEUE)
+GLOBAL_PPO = PPO(STATE_LATENT_SHAPE,OBS_DIM,ACTION_DIM,UPDATE_EVENT,ROLLING_EVENT,COORD,QUEUE,
+                  EPISODE_MAX=EPISODE_MAX)
 GLOBAL_CURIOSITY = GLOBAL_PPO.curiosity
-workers = [Worker(i,UPDATE_EVENT,ROLLING_EVENT,COORD,QUEUE,GLOBAL_CURIOSITY,GLOBAL_PPO) for i in range(NUMBER_OF_WORKERS)]
+workers = [Worker(i,UPDATE_EVENT,ROLLING_EVENT,COORD,QUEUE,GLOBAL_CURIOSITY,GLOBAL_PPO,
+                  EPISODE_MAX=EPISODE_MAX
+                  ) for i in range(NUMBER_OF_WORKERS)]
 
 threads = []
 for worker in workers:
@@ -63,5 +70,20 @@ for worker in workers:
 ppo_update_thread = threading.Thread(target=GLOBAL_PPO.update)
 ppo_update_thread.start()
 threads.append(ppo_update_thread)
+COORD.join(threads,stop_grace_period_secs=10)
 
-COORD.join(threads)
+print('Running a test')
+
+
+done = True
+for t in range(100):
+  if(done):
+    state = env.reset()
+    state = np.expand_dims(state.flatten(),axis=0)
+  env.render()
+  action = GLOBAL_PPO.get_action(state)
+  state,_,done,_ = env.step(action)
+  state = np.expand_dims(state.flatten(),axis=0)
+
+
+

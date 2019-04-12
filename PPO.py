@@ -48,7 +48,7 @@ class PPO(object):
     self.COORD = COORD
     self.QUEUE = QUEUE
     
-    self.inp = tf.placeholder(tf.float32,[None,self.OBS_DIM],name='state')
+    self.inp = tf.placeholder(tf.float32,(None,)+self.OBS_DIM,name='state')
     
     # ppo is based on actor critic 
     
@@ -103,8 +103,13 @@ class PPO(object):
         self.UPDATE_EVENT.wait()
         self.sess.run(self.update_old_policy_op) #TODO something similar for curiosity, maybe i have to include it in PPO
         data = [self.QUEUE.get() for _ in range(self.QUEUE.qsize())]
+        
+        
         data = np.vstack(data)
-        state,state_,action,reward = data[:, :self.OBS_DIM],data[:,self.OBS_DIM:2*self.OBS_DIM], data[:, 2*self.OBS_DIM: 2*self.OBS_DIM + 1].ravel(), data[:, -1:]
+
+        interv = np.sum(self.OBS_DIM)
+
+        state,state_,action,reward = data[:, :interv],data[:,interv:2*interv], data[:, 2*interv: 2*interv + 1].ravel(), data[:, -1:]
         advantage = self.sess.run(self.advantage, {self.inp: state,self.dc_reward: reward})
         # update actor and critic in a update loop
         [self.sess.run(self.actor_train_opt, {self.inp: state, self.action: action, self.full_adv: advantage}) for _ in range(self.UPDATE_STEP)]
