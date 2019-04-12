@@ -76,14 +76,14 @@ class Worker(object):
           bs,bs_, ba, br = np.vstack(buffer_state),np.vstack(buffer_state_),np.vstack(buffer_action),np.vstack(discounted_reward) #[:,np.newaxis] ??
           buffer_state,buffer_state_,buffer_action,buffer_reward = [],[],[],[]
           
-          self.QUEUE.enqueue(np.hstack((bs,bs_,ba,br)))
+          self.QUEUE.put(np.hstack((bs,bs_,ba,br)))
           
           self.ROLLING_EVENT.clear()
           self.UPDATE_EVENT.set()
           
           if PPO.GLOBAL_EPISODE >= self.EPISODE_MAX:
             print(self.wid,': requested stop')
-            self.QUEUE.close(cancel_pending_enqueues=False)
+            
             self.COORD.request_stop()
             self.env.close()
             break

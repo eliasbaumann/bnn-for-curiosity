@@ -53,7 +53,7 @@ UPDATE_EVENT, ROLLING_EVENT = threading.Event(), threading.Event()
 UPDATE_EVENT.clear()
 ROLLING_EVENT.set()
 COORD = tf.train.Coordinator()
-tf.FIFOQueue(0,[tf.float32],shared_name='queue')
+QUEUE = queue.Queue()
 
 GLOBAL_PPO = PPO(STATE_LATENT_SHAPE,OBS_DIM,ACTION_DIM,UPDATE_EVENT,ROLLING_EVENT,COORD,QUEUE,
                   EPISODE_MAX=EPISODE_MAX)
