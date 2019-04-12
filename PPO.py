@@ -97,14 +97,21 @@ class PPO(object):
   def get_value(self,state):
     return self.sess.run(self.value,{self.inp:state})[0,0] #TODO same as with get_action, need to figure out what comes out of here...
 
+  # def qget(self):
+  #   val = self.QUEUE.get()
+  #   self.QUEUE.task_done()
+  #   return val
+
   def update(self):
     while not self.COORD.should_stop():
       if GLOBAL_EPISODE < self.EPISODE_MAX:
         self.UPDATE_EVENT.wait()
         self.sess.run(self.update_old_policy_op) #TODO something similar for curiosity, maybe i have to include it in PPO
-        data = [self.QUEUE.get() for _ in range(self.QUEUE.qsize())]
+        # data = [self.qget() for _ in range(self.QUEUE.qsize())]
+        data = self.QUEUE.dequeue_up_to(self.QUEUE.size)
         
         
+
         data = np.vstack(data)
 
         interv = np.sum(self.OBS_DIM)

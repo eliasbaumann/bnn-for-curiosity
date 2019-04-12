@@ -53,7 +53,7 @@ UPDATE_EVENT, ROLLING_EVENT = threading.Event(), threading.Event()
 UPDATE_EVENT.clear()
 ROLLING_EVENT.set()
 COORD = tf.train.Coordinator()
-QUEUE = queue.Queue()
+tf.FIFOQueue(0,[tf.float32],shared_name='queue')
 
 GLOBAL_PPO = PPO(STATE_LATENT_SHAPE,OBS_DIM,ACTION_DIM,UPDATE_EVENT,ROLLING_EVENT,COORD,QUEUE,
                   EPISODE_MAX=EPISODE_MAX)
@@ -68,8 +68,8 @@ for worker in workers:
   thread.start()
   threads.append(thread)
 ppo_update_thread = threading.Thread(target=GLOBAL_PPO.update)
-ppo_update_thread.start()
 threads.append(ppo_update_thread)
+threads[-1].start()
 COORD.join(threads,stop_grace_period_secs=10)
 
 print('Running a test')
