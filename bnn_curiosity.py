@@ -22,14 +22,17 @@ from Curiosity import Curiosity
 from Worker import Worker
 
 ### starting out by writing ppo
-## good code example here: https://github.com/MorvanZhou/Reinforcement-learning-with-tensorflow/blob/master/contents/12_Proximal_Policy_Optimization/discrete_DPPO.py
+## good code example here: 44444
 ## because its short and doesnt do anything extra
 ## Next step would be to implement curiosity. But this should be the minimal baseline because thats already implemented in the Unity MLagents toolkit...<
 
 env = gym.make('CartPole-v0')
 
+high_dims = False
 
-OBS_DIM = env.observation_space.shape
+# TODO have an option to downscale this maybe?
+if(not high_dims):
+  OBS_DIM = env.observation_space.shape
 
 
 if(isinstance(env.action_space,gym.spaces.Discrete)):
@@ -37,10 +40,10 @@ if(isinstance(env.action_space,gym.spaces.Discrete)):
  
 
 
-EPISODE_MAX = 100
+EPISODE_MAX = 1000
 MIN_BATCH_SIZE = 64
 
-NUMBER_OF_WORKERS = 4
+NUMBER_OF_WORKERS = 8
 
 #### Curiosity stuff:
 STATE_LATENT_SHAPE = 64
@@ -70,13 +73,14 @@ for worker in workers:
 ppo_update_thread = threading.Thread(target=GLOBAL_PPO.update)
 threads.append(ppo_update_thread)
 threads[-1].start()
+
 COORD.join(threads,stop_grace_period_secs=10)
 
 print('Running a test')
 
 
 done = True
-for t in range(100):
+for t in range(1000):
   if(done):
     state = env.reset()
     state = np.expand_dims(state.flatten(),axis=0)

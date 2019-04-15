@@ -29,12 +29,12 @@ class Curiosity(object):
     else:
       i_model = self.inverse_model('ICM_inverse')
       f_model = self.forward_model('ICM_forward')
-      self.inverse_loss = tf.reduce_mean(tf.losses.softmax_cross_entropy(onehot_labels =self.inp_at, logits = self.a_hat))# THIS PROBABLY WONT WORK... need different loss
+      self.inverse_loss = tf.reduce_mean(tf.losses.softmax_cross_entropy(onehot_labels =self.inp_at, logits = self.a_hat))
       self.forward_loss = .5 * tf.reduce_mean(tf.square(tf.subtract(self.phi_hat_st_,self.phi_st)))
       self.curiosity = tf.divide(ETA,2.0) * tf.reduce_mean(tf.square(tf.subtract(self.phi_hat_st_,self.phi_st)))
 
       
-    self.inv_opt = tf.train.AdamOptimizer(INV_LR).minimize(self.inverse_loss) #somewhere this has to happen...
+    self.inv_opt = tf.train.AdamOptimizer(INV_LR).minimize(self.inverse_loss) 
     self.for_opt = tf.train.AdamOptimizer(FOR_LR).minimize(self.forward_loss)
     
     
@@ -44,13 +44,10 @@ class Curiosity(object):
     
   def inverse_model(self,name):
     with tf.variable_scope(name,reuse=tf.AUTO_REUSE):
-      # TODO could be done using a CNN feature extractor instead
       features = tf.layers.dense(tf.concat([self.inp_st,self.inp_st_],axis=1),200,tf.nn.relu)
-
-
+      
       self.phi_st = tf.layers.dense(features,self.STATE_LATENT_SHAPE,tf.nn.relu) # Activation here is TBD 
       self.phi_st_ = tf.layers.dense(features,self.STATE_LATENT_SHAPE,tf.nn.relu) 
-
       inv1 = tf.layers.dense(tf.concat([self.phi_st,self.phi_st_],axis=1),200,tf.nn.relu)
       self.a_hat = tf.layers.dense(inv1,self.ACTION_DIM,tf.nn.softmax)
     
@@ -93,9 +90,9 @@ class Curiosity(object):
     s_t_ = s_t_.reshape((batch_size,-1))
     
     
-    a_t_new = np.reshape(np.repeat(np.repeat(0.0001,self.ACTION_DIM),s_t.shape[0]),(batch_size,-1))
+    a_t_new = np.reshape(np.repeat(np.repeat(0.,self.ACTION_DIM),s_t.shape[0]),(batch_size,-1))
     
-    a_t_new[np.arange(a_t_new.shape[0]),np.int8(a_t)]=.9999
+    a_t_new[np.arange(a_t_new.shape[0]),np.int8(a_t)]=1.
     
     return s_t,s_t_,a_t_new
                          

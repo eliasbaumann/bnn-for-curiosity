@@ -31,14 +31,13 @@ class PPO(object):
     params = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES,scope=name)
     return action_probs,params
   
-  def __init__(self,STATE_LATENT_SHAPE,OBS_DIM,ACTION_DIM,UPDATE_EVENT,ROLLING_EVENT,COORD,QUEUE,CRITIC_LR=.0001,ACTOR_LR = .0002,EPSILON=.2,GAMMA=.9,EPISODE_MAX = 1000,UPDATE_STEP=10):
+  def __init__(self,STATE_LATENT_SHAPE,OBS_DIM,ACTION_DIM,UPDATE_EVENT,ROLLING_EVENT,COORD,QUEUE,CRITIC_LR=.0001,ACTOR_LR = .0002,EPSILON=.2,EPISODE_MAX = 1000,UPDATE_STEP=10):
     self.sess = tf.Session()
     self.OBS_DIM = OBS_DIM
     self.ACTION_DIM = ACTION_DIM
     self.CRITIC_LR = CRITIC_LR
     self.ACTOR_LR = ACTOR_LR
     self.EPSILON = EPSILON
-    self.GAMMA = GAMMA
     self.EPISODE_MAX = EPISODE_MAX
     self.UPDATE_STEP = UPDATE_STEP
     self.STATE_LATENT_SHAPE = STATE_LATENT_SHAPE
@@ -53,7 +52,7 @@ class PPO(object):
     # ppo is based on actor critic 
     
     # Critic
-    crit = tf.layers.dense(self.inp,100,tf.nn.relu)
+    crit = tf.layers.dense(self.inp,200,tf.nn.relu, kernel_initializer=tf.random_normal_initializer(0.,.1))
     self.value = tf.layers.dense(crit,1)
     self.dc_reward = tf.placeholder(tf.float32,[None,1],name='discounted_r')
     self.advantage = self.dc_reward - self.value
@@ -62,10 +61,8 @@ class PPO(object):
     
     
     # Actor 
-    self.policy, theta_p = self._actor_network('policy',trainable=True)
-    
+    self.policy, theta_p = self._actor_network('policy',trainable=True) 
     old_policy, old_theta_p = self._actor_network('old_policy',trainable=False)
-    
     self.update_old_policy_op =[oldp.assign(p) for p,oldp in zip(theta_p,old_theta_p)]
     
     self.action = tf.placeholder(tf.int32, [None,],name='action')
@@ -97,29 +94,26 @@ class PPO(object):
   def get_value(self,state):
     return self.sess.run(self.value,{self.inp:state})[0,0] #TODO same as with get_action, need to figure out what comes out of here...
 
-  def qget(self):
-    val = self.QUEUE.get()
-    self.QUEUE.task_done()
-    return val
-
   def update(self):
     while not self.COORD.should_stop():
       if GLOBAL_EPISODE < self.EPISODE_MAX:
         self.UPDATE_EVENT.wait()
-        self.sess.run(self.update_old_policy_op) #TODO something similar for curiosity, maybe i have to include it in PPO
-        data = [self.qget() for _ in range(self.QUEUE.qsize())]
-        
-        
+        self.sess.run(self.update_old_policy_op) 
+        data = []
+        for _ in range(self.QUEUE.qsize()):
+          data.append(self.QUEUE.get())
+          self.QUEUE.task_done()
 
+        #data = [self.qget() for _ in range(self.QUEUE.qsize())]
         data = np.vstack(data)
 
         interv = np.sum(self.OBS_DIM)
-
         state,state_,action,reward = data[:, :interv],data[:,interv:2*interv], data[:, 2*interv: 2*interv + 1].ravel(), data[:, -1:]
         advantage = self.sess.run(self.advantage, {self.inp: state,self.dc_reward: reward})
+        
         # update actor and critic in a update loop
-        [self.sess.run(self.actor_train_opt, {self.inp: state, self.action: action, self.full_adv: advantage}) for _ in range(self.UPDATE_STEP)]
-        [self.sess.run(self.critic_train_opt, {self.inp: state, self.dc_reward: reward}) for _ in range(self.UPDATE_STEP)]
+        res_al = [self.sess.run([self.actor_train_opt,self.actor_loss], {self.inp: state, self.action: action, self.full_adv: advantage}) for _ in range(self.UPDATE_STEP)]
+        res_cl = [self.sess.run([self.critic_train_opt,self.critic_loss], {self.inp: state, self.dc_reward: reward}) for _ in range(self.UPDATE_STEP)]
         
         self.curiosity.update(state,state_,action)
         

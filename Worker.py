@@ -8,13 +8,13 @@ import gym
 
 
 GLOBAL_RUNNING_REWARD = []
-
+EPISODE_LENGTH = 1000
 
 
 class Worker(object):
   def __init__(self,wid,UPDATE_EVENT,ROLLING_EVENT,COORD,QUEUE,GLOBAL_CURIOSITY,GLOBAL_PPO,EPISODE_MAX=1000,MIN_BATCH_SIZE=64,GAMMA=.9,PATH='C:/Users/Elex/Downloads/obstacle-tower-challenge/ObstacleTower/obstacletower'):
     self.wid = wid
-    self.env = gym.make('CartPole-v0')
+    self.env = gym.make('CartPole-v0').unwrapped
     
     self.UPDATE_EVENT = UPDATE_EVENT
     self.ROLLING_EVENT = ROLLING_EVENT
@@ -40,7 +40,7 @@ class Worker(object):
       episode_reward = 0
       done = False
       buffer_state,buffer_state_,buffer_action,buffer_reward = [],[],[],[]
-      while not done: 
+      for t in range(EPISODE_LENGTH): 
         
         if not self.ROLLING_EVENT.is_set():
           self.ROLLING_EVENT.wait()
@@ -49,24 +49,27 @@ class Worker(object):
         # Add multiple runs until batch size
         action = self.ppo.get_action(state)
         state_,reward,done,_ = self.env.step(action)
-        
+        if done: reward = -10
+        state_ = np.expand_dims(state_.flatten(),axis=0)
+
         curiosity = self.cur.get_reward(state,state_,action)
         reward += curiosity
-        
-        state_ = np.expand_dims(state_.flatten(),axis=0)
         
         buffer_state.append(state)
         buffer_state_.append(state_)
         buffer_action.append(action)
-        buffer_reward.append(reward) #he normalized this, probably smart to do when we add curiosity as well...
+        buffer_reward.append(reward-1) 
         state = state_
         episode_reward += reward
         PPO.alterGlobalUpdateCounter(1)#GLOBAL_UPDATE_COUNTER += 1
         
         # If enough state,action,reward triples are collected:
-        if PPO.GLOBAL_UPDATE_COUNTER >= self.MIN_BATCH_SIZE or done:
+        if t == EPISODE_LENGTH-1 or PPO.GLOBAL_UPDATE_COUNTER >= self.MIN_BATCH_SIZE or done:
+          if done:
+            state_value = 0
+          else:
+            state_value = self.ppo.get_value(state_)
           
-          state_value = self.ppo.get_value(state_)
           discounted_reward = []
           for r in buffer_reward: #[::-1] he adds that, but need to check if needed
             state_value = r + self.GAMMA * state_value
@@ -78,14 +81,17 @@ class Worker(object):
           
           self.QUEUE.put(np.hstack((bs,bs_,ba,br)))
           
-          self.ROLLING_EVENT.clear()
-          self.UPDATE_EVENT.set()
+          if PPO.GLOBAL_UPDATE_COUNTER>=self.MIN_BATCH_SIZE:
+            self.ROLLING_EVENT.clear()
+            self.UPDATE_EVENT.set()
           
           if PPO.GLOBAL_EPISODE >= self.EPISODE_MAX:
             print(self.wid,': requested stop')
-            
+            self.ROLLING_EVENT.set()
             self.COORD.request_stop()
             self.env.close()
+            break
+          if done:
             break
       
       
