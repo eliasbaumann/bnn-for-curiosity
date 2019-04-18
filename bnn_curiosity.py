@@ -26,13 +26,19 @@ from Worker import Worker
 ## because its short and doesnt do anything extra
 ## Next step would be to implement curiosity. But this should be the minimal baseline because thats already implemented in the Unity MLagents toolkit...<
 
-env = gym.make('CartPole-v0')
 
-high_dims = False
+GAME_NAME = 'Seaquest-v0'
+env = gym.make(GAME_NAME)
+
 
 # TODO have an option to downscale this maybe?
-if(not high_dims):
+print(env.observation_space.shape)
+if(len(env.observation_space.shape)<=2):
   OBS_DIM = env.observation_space.shape
+else:
+  print('test')
+  OBS_DIM = (np.prod(env.observation_space.shape),)
+  # TODO 
 
 
 if(isinstance(env.action_space,gym.spaces.Discrete)):
@@ -43,7 +49,7 @@ if(isinstance(env.action_space,gym.spaces.Discrete)):
 EPISODE_MAX = 1000
 MIN_BATCH_SIZE = 64
 
-NUMBER_OF_WORKERS = 8
+NUMBER_OF_WORKERS = 4
 
 #### Curiosity stuff:
 STATE_LATENT_SHAPE = 64
@@ -61,7 +67,7 @@ QUEUE = queue.Queue()
 GLOBAL_PPO = PPO(STATE_LATENT_SHAPE,OBS_DIM,ACTION_DIM,UPDATE_EVENT,ROLLING_EVENT,COORD,QUEUE,
                   EPISODE_MAX=EPISODE_MAX)
 GLOBAL_CURIOSITY = GLOBAL_PPO.curiosity
-workers = [Worker(i,UPDATE_EVENT,ROLLING_EVENT,COORD,QUEUE,GLOBAL_CURIOSITY,GLOBAL_PPO,
+workers = [Worker(i,UPDATE_EVENT,ROLLING_EVENT,COORD,QUEUE,GLOBAL_CURIOSITY,GLOBAL_PPO,GAME_NAME,
                   EPISODE_MAX=EPISODE_MAX
                   ) for i in range(NUMBER_OF_WORKERS)]
 

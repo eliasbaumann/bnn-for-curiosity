@@ -12,9 +12,9 @@ EPISODE_LENGTH = 1000
 
 
 class Worker(object):
-  def __init__(self,wid,UPDATE_EVENT,ROLLING_EVENT,COORD,QUEUE,GLOBAL_CURIOSITY,GLOBAL_PPO,EPISODE_MAX=1000,MIN_BATCH_SIZE=64,GAMMA=.9,PATH='C:/Users/Elex/Downloads/obstacle-tower-challenge/ObstacleTower/obstacletower'):
+  def __init__(self,wid,UPDATE_EVENT,ROLLING_EVENT,COORD,QUEUE,GLOBAL_CURIOSITY,GLOBAL_PPO,GAME_NAME,EPISODE_MAX=1000,MIN_BATCH_SIZE=64,GAMMA=.9,PATH='C:/Users/Elex/Downloads/obstacle-tower-challenge/ObstacleTower/obstacletower'):
     self.wid = wid
-    self.env = gym.make('CartPole-v0').unwrapped
+    self.env = gym.make(GAME_NAME).unwrapped
     
     self.UPDATE_EVENT = UPDATE_EVENT
     self.ROLLING_EVENT = ROLLING_EVENT

@@ -54,7 +54,7 @@ class PPO(object):
     # Critic
     crit = tf.layers.dense(self.inp,200,tf.nn.relu, kernel_initializer=tf.random_normal_initializer(0.,.1))
     self.value = tf.layers.dense(crit,1)
-    self.dc_reward = tf.placeholder(tf.float32,[None,1],name='discounted_r')
+    self.dc_reward = tf.placeholder(tf.float32,[None,1],name='discounted_reward')
     self.advantage = self.dc_reward - self.value
     self.critic_loss = tf.reduce_mean(tf.square(self.advantage))
     self.critic_train_opt = tf.train.AdamOptimizer(self.CRITIC_LR).minimize(self.critic_loss)
@@ -71,11 +71,9 @@ class PPO(object):
     a_indices = tf.stack([tf.range(tf.shape(self.action)[0], dtype=tf.int32), self.action], axis=1)
     pi_prob = tf.gather_nd(params=self.policy, indices=a_indices)   
     oldpi_prob = tf.gather_nd(params=old_policy, indices=a_indices) 
-    ratio = pi_prob/oldpi_prob
-    surr = ratio * self.full_adv
+    surr =(pi_prob/oldpi_prob) * self.full_adv
     
-    
-    self.actor_loss = -tf.reduce_mean(tf.minimum(surr,tf.clip_by_value(ratio,1.-self.EPSILON,1.+self.EPSILON)*self.full_adv))
+    self.actor_loss = -tf.reduce_mean(tf.minimum(surr,tf.clip_by_value(pi_prob/oldpi_prob,1.-self.EPSILON,1.+self.EPSILON)*self.full_adv))
     
     
     
@@ -104,7 +102,6 @@ class PPO(object):
           data.append(self.QUEUE.get())
           self.QUEUE.task_done()
 
-        #data = [self.qget() for _ in range(self.QUEUE.qsize())]
         data = np.vstack(data)
 
         interv = np.sum(self.OBS_DIM)
