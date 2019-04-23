@@ -33,13 +33,7 @@ env = gym.make(GAME_NAME)
 
 # TODO have an option to downscale this maybe?
 print(env.observation_space.shape)
-if(len(env.observation_space.shape)<=2):
-  OBS_DIM = env.observation_space.shape
-else:
-  print('test')
-  OBS_DIM = (np.prod(env.observation_space.shape),)
-  # TODO 
-
+OBS_DIM = env.observation_space.shape
 
 if(isinstance(env.action_space,gym.spaces.Discrete)):
   ACTION_DIM = env.action_space.n

@@ -2,6 +2,8 @@ import tensorflow as tf
 #import tensorflow_probability as tfp
 import numpy as np
 
+from utils import small_convnet
+
 class Curiosity(object):
   def __init__(self,sess,STATE_LATENT_SHAPE,OBS_DIM,ACTION_DIM,UPDATE_STEP,INV_LR=.0001,FOR_LR=.0001,ETA=1,uncertainty=False):
     
@@ -20,6 +22,13 @@ class Curiosity(object):
     self.inp_st = tf.placeholder(tf.float32,(None,)+self.OBS_DIM,name='S_t_input')
     self.inp_st_ = tf.placeholder(tf.float32,(None,)+self.OBS_DIM,name='S_t_1_input')
     self.inp_at = tf.placeholder(tf.float32,[None,self.ACTION_DIM],name = 'A_t_input')
+
+    # TODO give as argument
+    self.feature_dims = 100
+
+    if(len(self.OBS_DIM)>2):
+      self.inp_st = small_convnet(self.inp_st,tf.nn.leaky_relu,self.feature_dims,tf.nn.leaky_relu,False)
+      self.inp_st_ = small_convnet(self.inp_st_,tf.nn.leaky_relu,self.feature_dims,tf.nn.leaky_relu,False)
 
     if(self.uncertainty):
       

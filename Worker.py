@@ -36,7 +36,8 @@ class Worker(object):
     global GLOBAL_RUNNING_REWARD
     while not self.COORD.should_stop():
       state = self.env.reset()
-      state = np.expand_dims(state.flatten(), axis=0)
+      # state = np.expand_dims(state.flatten(), axis=0)
+      print(state.shape)
       episode_reward = 0
       done = False
       buffer_state,buffer_state_,buffer_action,buffer_reward = [],[],[],[]
@@ -50,7 +51,7 @@ class Worker(object):
         action = self.ppo.get_action(state)
         state_,reward,done,_ = self.env.step(action)
         if done: reward = -10
-        state_ = np.expand_dims(state_.flatten(),axis=0)
+        # state_ = np.expand_dims(state_.flatten(),axis=0)
 
         curiosity = self.cur.get_reward(state,state_,action)
         reward += curiosity

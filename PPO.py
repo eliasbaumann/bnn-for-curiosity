@@ -3,6 +3,8 @@ import numpy as np
 
 from Curiosity import Curiosity
 
+from utils import small_convnet
+
 GLOBAL_UPDATE_COUNTER = 0
 GLOBAL_EPISODE = 0
 
@@ -47,10 +49,13 @@ class PPO(object):
     self.COORD = COORD
     self.QUEUE = QUEUE
     
+    # TODO give as argument
+    self.feature_dims = 100
+
     self.inp = tf.placeholder(tf.float32,(None,)+self.OBS_DIM,name='state')
-    
-    # ppo is based on actor critic 
-    
+    if(len(OBS_DIM)>2):
+      self.inp = small_convnet(self.inp,tf.nn.leaky_relu,self.feature_dims,tf.nn.leaky_relu,False)
+        
     # Critic
     crit = tf.layers.dense(self.inp,200,tf.nn.relu, kernel_initializer=tf.random_normal_initializer(0.,.1))
     self.value = tf.layers.dense(crit,1)
