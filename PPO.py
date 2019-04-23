@@ -24,9 +24,10 @@ class PPO(object):
 
   def _actor_network(self,name,trainable):
     with tf.variable_scope(name,reuse=tf.AUTO_REUSE):
-      act = tf.layers.dense(self.inp,200,tf.nn.relu,trainable=trainable)
-      
-      
+      if(len(self.OBS_DIM)>2):
+        act = tf.layers.dense(self.cnn,200,tf.nn.leaky_relu,trainable=trainable)
+      else:
+        act = tf.layers.dense(self.inp,200,tf.nn.leaky_relu,trainable=trainable)
       # mu = 2* tf.layers.dense(act,ACTION_DIM,tf.nn.tanh,trainable=trainable)
       action_probs = tf.layers.dense(act,self.ACTION_DIM,tf.nn.softmax,trainable=trainable)
       # norm_dist = tf.distributions.Normal(loc=mu,scale=sigma)
@@ -54,10 +55,11 @@ class PPO(object):
 
     self.inp = tf.placeholder(tf.float32,(None,)+self.OBS_DIM,name='state')
     if(len(OBS_DIM)>2):
-      self.inp = small_convnet(self.inp,tf.nn.leaky_relu,self.feature_dims,tf.nn.leaky_relu,False)
-        
+      self.cnn = small_convnet(x=self.inp,nl=tf.nn.leaky_relu,feat_dim=self.feature_dims,last_nl=tf.nn.leaky_relu,layernormalize=False)
+      crit = tf.layers.dense(self.cnn,200,tf.nn.relu, kernel_initializer=tf.random_normal_initializer(0.,.1))
+    else:
+      crit = tf.layers.dense(self.inp,200,tf.nn.relu, kernel_initializer=tf.random_normal_initializer(0.,.1))
     # Critic
-    crit = tf.layers.dense(self.inp,200,tf.nn.relu, kernel_initializer=tf.random_normal_initializer(0.,.1))
     self.value = tf.layers.dense(crit,1)
     self.dc_reward = tf.placeholder(tf.float32,[None,1],name='discounted_reward')
     self.advantage = self.dc_reward - self.value
@@ -76,6 +78,7 @@ class PPO(object):
     a_indices = tf.stack([tf.range(tf.shape(self.action)[0], dtype=tf.int32), self.action], axis=1)
     pi_prob = tf.gather_nd(params=self.policy, indices=a_indices)   
     oldpi_prob = tf.gather_nd(params=old_policy, indices=a_indices) 
+
     surr =(pi_prob/oldpi_prob) * self.full_adv
     
     self.actor_loss = -tf.reduce_mean(tf.minimum(surr,tf.clip_by_value(pi_prob/oldpi_prob,1.-self.EPSILON,1.+self.EPSILON)*self.full_adv))
@@ -108,9 +111,10 @@ class PPO(object):
           self.QUEUE.task_done()
 
         data = np.vstack(data)
-
-        interv = np.sum(self.OBS_DIM)
+        interv = np.prod(self.OBS_DIM)
         state,state_,action,reward = data[:, :interv],data[:,interv:2*interv], data[:, 2*interv: 2*interv + 1].ravel(), data[:, -1:]
+        state = state.reshape((data.shape[0],)+self.OBS_DIM)
+        state_ = state_.reshape((data.shape[0],)+self.OBS_DIM)
         advantage = self.sess.run(self.advantage, {self.inp: state,self.dc_reward: reward})
         
         # update actor and critic in a update loop

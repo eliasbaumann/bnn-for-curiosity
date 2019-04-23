@@ -27,8 +27,8 @@ class Curiosity(object):
     self.feature_dims = 100
 
     if(len(self.OBS_DIM)>2):
-      self.inp_st = small_convnet(self.inp_st,tf.nn.leaky_relu,self.feature_dims,tf.nn.leaky_relu,False)
-      self.inp_st_ = small_convnet(self.inp_st_,tf.nn.leaky_relu,self.feature_dims,tf.nn.leaky_relu,False)
+      self.cnn_st = small_convnet(self.inp_st,tf.nn.leaky_relu,self.feature_dims,tf.nn.leaky_relu,False)
+      self.cnn_st_ = small_convnet(self.inp_st_,tf.nn.leaky_relu,self.feature_dims,tf.nn.leaky_relu,False)
 
     if(self.uncertainty):
       
@@ -53,7 +53,10 @@ class Curiosity(object):
     
   def inverse_model(self,name):
     with tf.variable_scope(name,reuse=tf.AUTO_REUSE):
-      features = tf.layers.dense(tf.concat([self.inp_st,self.inp_st_],axis=1),200,tf.nn.relu)
+      if(len(self.OBS_DIM)>2):
+        features = tf.layers.dense(tf.concat([self.cnn_st,self.cnn_st_],axis=1),200,tf.nn.relu)
+      else:
+        features = tf.layers.dense(tf.concat([self.inp_st,self.inp_st_],axis=1),200,tf.nn.relu)
       
       self.phi_st = tf.layers.dense(features,self.STATE_LATENT_SHAPE,tf.nn.relu) # Activation here is TBD 
       self.phi_st_ = tf.layers.dense(features,self.STATE_LATENT_SHAPE,tf.nn.relu) 
@@ -91,13 +94,12 @@ class Curiosity(object):
       
       
       
-  def reshape_data(self,s_t,s_t_,a_t):
-    
+  def reshape_data(self,s_t,s_t_,a_t,from_pixels):
     batch_size = s_t.shape[0]
-
-    s_t = s_t.reshape((batch_size,-1))
-    s_t_ = s_t_.reshape((batch_size,-1))
-    
+    if(not from_pixels):
+      s_t = s_t.reshape((batch_size,-1))
+      s_t_ = s_t_.reshape((batch_size,-1))
+      
     
     a_t_new = np.reshape(np.repeat(np.repeat(0.,self.ACTION_DIM),s_t.shape[0]),(batch_size,-1))
     
@@ -108,7 +110,7 @@ class Curiosity(object):
   
   def get_reward(self,s_t,s_t_,a_t):
     
-    s_t,s_t_,a_t = self.reshape_data(s_t,s_t_,a_t)
+    s_t,s_t_,a_t = self.reshape_data(s_t,s_t_,a_t,len(self.OBS_DIM)>2)
     if(self.uncertainty):
       return None
     else:
@@ -116,7 +118,7 @@ class Curiosity(object):
   
   def update(self,state,state_,action):
     
-    state,state_,action = self.reshape_data(state,state_,action)
+    state,state_,action = self.reshape_data(state,state_,action,len(self.OBS_DIM)>2)
     [self.sess.run(self.inv_opt, {self.inp_st: state,self.inp_st_:state_,self.inp_at:action}) for _ in range(self.UPDATE_STEP)]
     [self.sess.run(self.for_opt, {self.inp_st: state,self.inp_st_:state_,self.inp_at:action}) for _ in range(self.UPDATE_STEP)]
         

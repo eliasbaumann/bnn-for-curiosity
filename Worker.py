@@ -6,6 +6,7 @@ import numpy as np
 import PPO
 import gym
 
+from utils import WarpFrame
 
 GLOBAL_RUNNING_REWARD = []
 EPISODE_LENGTH = 1000
@@ -14,7 +15,7 @@ EPISODE_LENGTH = 1000
 class Worker(object):
   def __init__(self,wid,UPDATE_EVENT,ROLLING_EVENT,COORD,QUEUE,GLOBAL_CURIOSITY,GLOBAL_PPO,GAME_NAME,EPISODE_MAX=1000,MIN_BATCH_SIZE=64,GAMMA=.9,PATH='C:/Users/Elex/Downloads/obstacle-tower-challenge/ObstacleTower/obstacletower'):
     self.wid = wid
-    self.env = gym.make(GAME_NAME).unwrapped
+    self.env = WarpFrame(gym.make(GAME_NAME),84,84,True)
     
     self.UPDATE_EVENT = UPDATE_EVENT
     self.ROLLING_EVENT = ROLLING_EVENT
@@ -36,8 +37,9 @@ class Worker(object):
     global GLOBAL_RUNNING_REWARD
     while not self.COORD.should_stop():
       state = self.env.reset()
+      state = np.expand_dims(state,axis=0)
       # state = np.expand_dims(state.flatten(), axis=0)
-      print(state.shape)
+      
       episode_reward = 0
       done = False
       buffer_state,buffer_state_,buffer_action,buffer_reward = [],[],[],[]
@@ -51,13 +53,15 @@ class Worker(object):
         action = self.ppo.get_action(state)
         state_,reward,done,_ = self.env.step(action)
         if done: reward = -10
+        state_ = np.expand_dims(state_,axis=0)
         # state_ = np.expand_dims(state_.flatten(),axis=0)
 
         curiosity = self.cur.get_reward(state,state_,action)
         reward += curiosity
         
-        buffer_state.append(state)
-        buffer_state_.append(state_)
+        
+        buffer_state.append(state.reshape((1,-1)))
+        buffer_state_.append(state_.reshape((1,-1)))
         buffer_action.append(action)
         buffer_reward.append(reward-1) 
         state = state_
