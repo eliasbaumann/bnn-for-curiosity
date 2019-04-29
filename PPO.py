@@ -51,7 +51,7 @@ class PPO(object):
     self.QUEUE = QUEUE
     
     # TODO give as argument
-    self.feature_dims = 100
+    self.feature_dims = 256
 
     self.inp = tf.placeholder(tf.float32,(None,)+self.OBS_DIM,name='state')
     if(len(OBS_DIM)>2):

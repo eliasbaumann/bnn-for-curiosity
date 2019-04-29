@@ -24,7 +24,7 @@ class Curiosity(object):
     self.inp_at = tf.placeholder(tf.float32,[None,self.ACTION_DIM],name = 'A_t_input')
 
     # TODO give as argument
-    self.feature_dims = 100
+    self.feature_dims = 256
 
     if(len(self.OBS_DIM)>2):
       self.cnn_st = small_convnet(self.inp_st,tf.nn.leaky_relu,self.feature_dims,tf.nn.leaky_relu,False)

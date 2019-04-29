@@ -9,7 +9,7 @@ import gym
 from utils import WarpFrame
 
 GLOBAL_RUNNING_REWARD = []
-EPISODE_LENGTH = 1000
+EPISODE_LENGTH = 10000
 
 
 class Worker(object):
@@ -52,7 +52,7 @@ class Worker(object):
         # Add multiple runs until batch size
         action = self.ppo.get_action(state)
         state_,reward,done,_ = self.env.step(action)
-        if done: reward = -10
+        # if done: reward = -10 # -> should not exist in version which compares to pathak et al.
         state_ = np.expand_dims(state_,axis=0)
         # state_ = np.expand_dims(state_.flatten(),axis=0)
 
@@ -69,12 +69,14 @@ class Worker(object):
         PPO.alterGlobalUpdateCounter(1)#GLOBAL_UPDATE_COUNTER += 1
         
         # If enough state,action,reward triples are collected:
-        if t == EPISODE_LENGTH-1 or PPO.GLOBAL_UPDATE_COUNTER >= self.MIN_BATCH_SIZE or done:
-          if done:
-            state_value = 0
-          else:
-            state_value = self.ppo.get_value(state_)
+        if t == EPISODE_LENGTH-1 or PPO.GLOBAL_UPDATE_COUNTER >= self.MIN_BATCH_SIZE: #or done:
+          # if done:
+          #   state_value = 0
+          # else:
+          #   state_value = self.ppo.get_value(state_)
           
+          state_value = self.ppo.get_value(state_)
+
           discounted_reward = []
           for r in buffer_reward: #[::-1] he adds that, but need to check if needed
             state_value = r + self.GAMMA * state_value
@@ -96,8 +98,8 @@ class Worker(object):
             self.COORD.request_stop()
             self.env.close()
             break
-          if done:
-            break
+          # if done:
+          #   break
       
       
       if len(GLOBAL_RUNNING_REWARD) == 0: 
