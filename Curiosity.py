@@ -38,6 +38,7 @@ class Curiosity(object):
     else:
       i_model = self.inverse_model('ICM_inverse')
       f_model = self.forward_model('ICM_forward')
+      
       self.inverse_loss = tf.reduce_mean(tf.losses.softmax_cross_entropy(onehot_labels =self.inp_at, logits = self.a_hat))
       self.forward_loss = .5 * tf.reduce_mean(tf.square(tf.subtract(self.phi_hat_st_,self.phi_st)))
       self.curiosity = tf.divide(ETA,2.0) * tf.reduce_mean(tf.square(tf.subtract(self.phi_hat_st_,self.phi_st)))

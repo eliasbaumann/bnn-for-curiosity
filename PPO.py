@@ -1,9 +1,10 @@
 import tensorflow as tf
 import numpy as np
 
+
 from Curiosity import Curiosity
 
-from utils import small_convnet
+from utils import small_convnet,RunningMeanStd
 
 GLOBAL_UPDATE_COUNTER = 0
 GLOBAL_EPISODE = 0
@@ -89,16 +90,25 @@ class PPO(object):
     
     self.curiosity = Curiosity(self.sess,self.STATE_LATENT_SHAPE,self.OBS_DIM,self.ACTION_DIM,self.UPDATE_STEP)
     
+    self.r_rew_tracker = RunningMeanStd()
+
     self.sess.run(tf.global_variables_initializer())
     
     
   def get_action(self,state):
     action_probs = self.sess.run(self.policy, {self.inp:state})
-    action = np.random.choice(range(action_probs.shape[1]),p=action_probs.ravel())
+    if(np.isnan(action_probs).any()):
+      action = np.random.choice(range(action_probs.shape[1]))
+    else:
+      action = np.random.choice(range(action_probs.shape[1]),p=action_probs.ravel())
     return action
 
   def get_value(self,state):
     return self.sess.run(self.value,{self.inp:state})[0,0] #TODO same as with get_action, need to figure out what comes out of here...
+
+  def norm_adv(self,adv):
+    return (adv-np.mean(adv))/np.std(adv)
+    
 
   def update(self):
     while not self.COORD.should_stop():
@@ -115,10 +125,15 @@ class PPO(object):
         state,state_,action,reward = data[:, :interv],data[:,interv:2*interv], data[:, 2*interv: 2*interv + 1].ravel(), data[:, -1:]
         state = state.reshape((data.shape[0],)+self.OBS_DIM)
         state_ = state_.reshape((data.shape[0],)+self.OBS_DIM)
-        advantage = self.sess.run(self.advantage, {self.inp: state,self.dc_reward: reward})
+
+        self.r_rew_tracker.update_from_moments(np.mean(reward),np.var(reward),reward.shape[0])#mean,var,count
+        self.norm_rew = reward/np.sqrt(self.r_rew_tracker.var)
+        advantage = self.sess.run(self.advantage, {self.inp: state,self.dc_reward: self.norm_rew})
         
+        normalized_adv = self.norm_adv(advantage)
+
         # update actor and critic in a update loop
-        res_al = [self.sess.run([self.actor_train_opt,self.actor_loss], {self.inp: state, self.action: action, self.full_adv: advantage}) for _ in range(self.UPDATE_STEP)]
+        res_al = [self.sess.run([self.actor_train_opt,self.actor_loss], {self.inp: state, self.action: action, self.full_adv: normalized_adv}) for _ in range(self.UPDATE_STEP)]
         res_cl = [self.sess.run([self.critic_train_opt,self.critic_loss], {self.inp: state, self.dc_reward: reward}) for _ in range(self.UPDATE_STEP)]
         
         self.curiosity.update(state,state_,action)

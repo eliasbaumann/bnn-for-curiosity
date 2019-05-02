@@ -25,14 +25,14 @@ from utils import WarpFrame
 ### starting out by writing ppo
 ## Next step would be to implement curiosity. But this should be the minimal baseline because thats already implemented in the Unity MLagents toolkit...<
 
-
+tf.logging.set_verbosity(tf.logging.INFO)
 GAME_NAME = 'Seaquest-v0'
 env = gym.make(GAME_NAME)
+
 if(len(env.observation_space.shape)>2):
   env = WarpFrame(env,width=84,height=84,grayscale=True)
 
 # TODO have an option to downscale this maybe?
-print(env.observation_space.shape)
 OBS_DIM = env.observation_space.shape
 
 if(isinstance(env.action_space,gym.spaces.Discrete)):
