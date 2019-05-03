@@ -43,7 +43,7 @@ if(isinstance(env.action_space,gym.spaces.Discrete)):
 EPISODE_MAX = 1000
 MIN_BATCH_SIZE = 64
 
-NUMBER_OF_WORKERS = 8
+NUMBER_OF_WORKERS = 12
 
 #### Curiosity stuff:
 STATE_LATENT_SHAPE = 64
@@ -80,7 +80,7 @@ print('Running a test')
 
 
 done = True
-for t in range(1000):
+for t in range(3000):
   if(done):
     state = env.reset()
     state = np.expand_dims(state,axis=0)

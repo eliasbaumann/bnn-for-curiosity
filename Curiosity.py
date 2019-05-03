@@ -31,9 +31,9 @@ class Curiosity(object):
       self.cnn_st_ = small_convnet(self.inp_st_,tf.nn.leaky_relu,self.feature_dims,tf.nn.leaky_relu,False)
 
     if(self.uncertainty):
-      
-      i_model = self.bnn_inverse_model('BNN_inverse')
-      f_model = self.bnn_forward_model('BNN_forward')
+      None
+      #i_model = self.bnn_inverse_model('BNN_inverse')
+      #f_model = self.bnn_forward_model('BNN_forward')
       
     else:
       i_model = self.inverse_model('ICM_inverse')
@@ -55,13 +55,13 @@ class Curiosity(object):
   def inverse_model(self,name):
     with tf.variable_scope(name,reuse=tf.AUTO_REUSE):
       if(len(self.OBS_DIM)>2):
-        features = tf.layers.dense(tf.concat([self.cnn_st,self.cnn_st_],axis=1),200,tf.nn.relu)
+        features = tf.layers.dense(tf.concat([self.cnn_st,self.cnn_st_],axis=1),200,tf.nn.leaky_relu)
       else:
-        features = tf.layers.dense(tf.concat([self.inp_st,self.inp_st_],axis=1),200,tf.nn.relu)
+        features = tf.layers.dense(tf.concat([self.inp_st,self.inp_st_],axis=1),200,tf.nn.leaky_relu)
       
-      self.phi_st = tf.layers.dense(features,self.STATE_LATENT_SHAPE,tf.nn.relu) # Activation here is TBD 
-      self.phi_st_ = tf.layers.dense(features,self.STATE_LATENT_SHAPE,tf.nn.relu) 
-      inv1 = tf.layers.dense(tf.concat([self.phi_st,self.phi_st_],axis=1),200,tf.nn.relu)
+      self.phi_st = tf.layers.dense(features,self.STATE_LATENT_SHAPE,tf.nn.leaky_relu) # Activation here is TBD 
+      self.phi_st_ = tf.layers.dense(features,self.STATE_LATENT_SHAPE,tf.nn.leaky_relu) 
+      inv1 = tf.layers.dense(tf.concat([self.phi_st,self.phi_st_],axis=1),200,tf.nn.leaky_relu)
       self.a_hat = tf.layers.dense(inv1,self.ACTION_DIM,tf.nn.softmax)
     
     
