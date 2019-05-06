@@ -52,9 +52,12 @@ class WarpFrame(gym.ObservationWrapper):
     def observation(self, frame):
         if self.grayscale:
             frame = cv2.cvtColor(frame, cv2.COLOR_RGB2GRAY)
+            
         frame = cv2.resize(frame, (self.width, self.height), interpolation=cv2.INTER_AREA)
+        
         if self.grayscale:
             frame = np.expand_dims(frame, -1)
+        frame = cv2.normalize(frame, None, alpha=0, beta=1, norm_type=cv2.NORM_MINMAX, dtype=cv2.CV_32F)
         return frame
 
 # taken from OpenAI baselines which requires muJoCo but i dont want to purchase a license just yet
@@ -136,40 +139,5 @@ class TfRunningMeanStd(object):
 
         self._set_mean_var_count()
 
-
-
-def test_runningmeanstd():
-    for (x1, x2, x3) in [
-        (np.random.randn(3), np.random.randn(4), np.random.randn(5)),
-        (np.random.randn(3,2), np.random.randn(4,2), np.random.randn(5,2)),
-        ]:
-
-        rms = RunningMeanStd(epsilon=0.0, shape=x1.shape[1:])
-
-        x = np.concatenate([x1, x2, x3], axis=0)
-        ms1 = [x.mean(axis=0), x.var(axis=0)]
-        rms.update(x1)
-        rms.update(x2)
-        rms.update(x3)
-        ms2 = [rms.mean, rms.var]
-
-        np.testing.assert_allclose(ms1, ms2)
-
-def test_tf_runningmeanstd():
-    for (x1, x2, x3) in [
-        (np.random.randn(3), np.random.randn(4), np.random.randn(5)),
-        (np.random.randn(3,2), np.random.randn(4,2), np.random.randn(5,2)),
-        ]:
-
-        rms = TfRunningMeanStd(epsilon=0.0, shape=x1.shape[1:], scope='running_mean_std' + str(np.random.randint(0, 128)))
-
-        x = np.concatenate([x1, x2, x3], axis=0)
-        ms1 = [x.mean(axis=0), x.var(axis=0)]
-        rms.update(x1)
-        rms.update(x2)
-        rms.update(x3)
-        ms2 = [rms.mean, rms.var]
-
-        np.testing.assert_allclose(ms1, ms2)
 
 
