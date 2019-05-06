@@ -128,6 +128,7 @@ class PPO(object):
 
         self.r_rew_tracker.update_from_moments(np.mean(reward),np.var(reward),reward.shape[0])#mean,var,count
         self.norm_rew = reward/np.sqrt(self.r_rew_tracker.var)
+        
         advantage = self.sess.run(self.advantage, {self.inp: state,self.dc_reward: self.norm_rew})
         
         normalized_adv = self.norm_adv(advantage)

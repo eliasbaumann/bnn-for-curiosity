@@ -54,10 +54,9 @@ class WarpFrame(gym.ObservationWrapper):
             frame = cv2.cvtColor(frame, cv2.COLOR_RGB2GRAY)
             
         frame = cv2.resize(frame, (self.width, self.height), interpolation=cv2.INTER_AREA)
-        
+        frame = cv2.normalize(frame, None, alpha=0, beta=1, norm_type=cv2.NORM_MINMAX, dtype=cv2.CV_32F)
         if self.grayscale:
             frame = np.expand_dims(frame, -1)
-        frame = cv2.normalize(frame, None, alpha=0, beta=1, norm_type=cv2.NORM_MINMAX, dtype=cv2.CV_32F)
         return frame
 
 # taken from OpenAI baselines which requires muJoCo but i dont want to purchase a license just yet

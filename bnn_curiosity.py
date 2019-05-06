@@ -39,10 +39,10 @@ if(isinstance(env.action_space,gym.spaces.Discrete)):
  
 
 
-EPISODE_MAX = 100
-MIN_BATCH_SIZE = 128
+EPISODE_MAX = 1000
+MIN_BATCH_SIZE = 256
 
-NUMBER_OF_WORKERS = 12
+NUMBER_OF_WORKERS = 24
 
 #### Curiosity stuff:
 STATE_LATENT_SHAPE = 128
