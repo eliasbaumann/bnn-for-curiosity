@@ -126,7 +126,7 @@ class Curiosity(object):
     
     if(self.uncertainty):
       
-      s_t,s_t_,a_t = self.repeat_data(s_t,s_t_,a_t,20)
+      s_t,s_t_,a_t = self.repeat_data(s_t,s_t_,a_t,50)
       
       curs = self.sess.run(self.curiosity, {self.inp_st:s_t,self.inp_st_:s_t_,self.inp_at:a_t})
 

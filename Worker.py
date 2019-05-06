@@ -9,11 +9,11 @@ import gym
 from utils import WarpFrame
 
 GLOBAL_RUNNING_REWARD = []
-EPISODE_LENGTH = 1000
+EPISODE_LENGTH = 2000
 
 
 class Worker(object):
-  def __init__(self,wid,UPDATE_EVENT,ROLLING_EVENT,COORD,QUEUE,GLOBAL_CURIOSITY,GLOBAL_PPO,GAME_NAME,EPISODE_MAX=1000,MIN_BATCH_SIZE=64,GAMMA=.9,PATH='C:/Users/Elex/Downloads/obstacle-tower-challenge/ObstacleTower/obstacletower'):
+  def __init__(self,wid,UPDATE_EVENT,ROLLING_EVENT,COORD,QUEUE,GLOBAL_CURIOSITY,GLOBAL_PPO,GAME_NAME,EPISODE_MAX=1000,MIN_BATCH_SIZE=64,GAMMA=.9):
     self.wid = wid
     self.env = gym.make(GAME_NAME)
     if(len(self.env.observation_space.shape)>2):
@@ -43,6 +43,7 @@ class Worker(object):
       # state = np.expand_dims(state.flatten(), axis=0)
       
       episode_reward = 0
+      reward_list = []
       done = False
       buffer_state,buffer_state_,buffer_action,buffer_reward = [],[],[],[]
       for t in range(EPISODE_LENGTH): 
@@ -57,17 +58,19 @@ class Worker(object):
         # if done: reward = -10 # -> should not exist in version which compares to pathak et al.
         state_ = np.expand_dims(state_,axis=0)
         # state_ = np.expand_dims(state_.flatten(),axis=0)
-
-        curiosity = self.cur.get_reward(state,state_,action)
-        # reward += curiosity<
-        
         
         buffer_state.append(state.reshape((1,-1)))
         buffer_state_.append(state_.reshape((1,-1)))
         buffer_action.append(action)
-        buffer_reward.append(curiosity) 
+        if(self.cur.uncertainty==True):
+          curiosity = self.cur.get_reward(state,state_,action)
+          buffer_reward.append(curiosity) 
+        else:
+          curiosity = None
+          buffer_reward.append(reward-1) 
+        
         state = state_
-        episode_reward += reward 
+        episode_reward+=reward
         PPO.alterGlobalUpdateCounter(1)#GLOBAL_UPDATE_COUNTER += 1
         
         # If enough state,action,reward triples are collected:
@@ -101,16 +104,20 @@ class Worker(object):
             self.env.close()
             break
           if done:
+            reward_list.append(episode_reward)
+            episode_reward = 0
             break
         if done:
+          reward_list.append(episode_reward)
+          episode_reward = 0
           state = self.env.reset()
           state = np.expand_dims(state,axis=0)
       
       if len(GLOBAL_RUNNING_REWARD) == 0: 
-        GLOBAL_RUNNING_REWARD.append(episode_reward)
+        GLOBAL_RUNNING_REWARD.append(np.mean(episode_reward))
       else:
-        GLOBAL_RUNNING_REWARD.append(GLOBAL_RUNNING_REWARD[-1]*0.9+episode_reward*0.1)
+        GLOBAL_RUNNING_REWARD.append(GLOBAL_RUNNING_REWARD[-1]*0.9+np.mean(episode_reward)*0.1)
       PPO.alterGlobalEpisode(1) # GLOBAL_EPISODE += 1
-      print('{0:.1f}%'.format(PPO.GLOBAL_EPISODE/self.EPISODE_MAX*100), '|W%i' % self.wid,  '|Ep_r: %.2f' % episode_reward, 'Cur_r %.10f' % curiosity)
+      print('{0:.1f}%'.format(PPO.GLOBAL_EPISODE/self.EPISODE_MAX*100), '|W%i' % self.wid,  '|Mean_Ep_r: %.2f' % np.mean(episode_reward), 'Cur_r %.10f' % curiosity)
       
     print(self.wid,': stopped')
