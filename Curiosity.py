@@ -1,11 +1,11 @@
 import tensorflow as tf
-#import tensorflow_probability as tfp
+import tensorflow_probability as tfp
 import numpy as np
 
 from utils import small_convnet
 
 class Curiosity(object):
-  def __init__(self,sess,STATE_LATENT_SHAPE,OBS_DIM,ACTION_DIM,UPDATE_STEP,INV_LR=.0001,FOR_LR=.0001,ETA=1,uncertainty=False):
+  def __init__(self,sess,STATE_LATENT_SHAPE,OBS_DIM,ACTION_DIM,UPDATE_STEP,INV_LR=.0001,FOR_LR=.0001,ETA=1,uncertainty=True):
     
     self.sess = sess
     self.uncertainty = uncertainty
@@ -31,17 +31,15 @@ class Curiosity(object):
       self.cnn_st_ = small_convnet(self.inp_st_,tf.nn.leaky_relu,self.feature_dims,tf.nn.leaky_relu,False)
 
     if(self.uncertainty):
-      None
-      #i_model = self.bnn_inverse_model('BNN_inverse')
-      #f_model = self.bnn_forward_model('BNN_forward')
-      
+      self.i_model = self.bnn_inverse_model('BNN_inverse')
+      self.f_model = self.bnn_forward_model('BNN_forward')
     else:
-      i_model = self.inverse_model('ICM_inverse')
-      f_model = self.forward_model('ICM_forward')
+      self.i_model = self.inverse_model('ICM_inverse')
+      self.f_model = self.forward_model('ICM_forward')
       
-      self.inverse_loss = tf.reduce_mean(tf.losses.softmax_cross_entropy(onehot_labels =self.inp_at, logits = self.a_hat))
-      self.forward_loss = .5 * tf.reduce_mean(tf.square(tf.subtract(self.phi_hat_st_,self.phi_st)))
-      self.curiosity = tf.divide(ETA,2.0) * tf.reduce_mean(tf.square(tf.subtract(self.phi_hat_st_,self.phi_st)))
+    self.inverse_loss = tf.reduce_mean(tf.losses.softmax_cross_entropy(onehot_labels =self.inp_at, logits = self.a_hat))
+    self.forward_loss = .5 * tf.reduce_mean(tf.square(tf.subtract(self.phi_hat_st_,self.phi_st)))
+    self.curiosity = tf.divide(ETA,2.0) * tf.reduce_mean(tf.square(tf.subtract(self.phi_hat_st_,self.phi_st)),axis=1)
 
       
     self.inv_opt = tf.train.AdamOptimizer(INV_LR).minimize(self.inverse_loss) 
@@ -59,7 +57,7 @@ class Curiosity(object):
       else:
         features = tf.layers.dense(tf.concat([self.inp_st,self.inp_st_],axis=1),200,tf.nn.leaky_relu)
       
-      self.phi_st = tf.layers.dense(features,self.STATE_LATENT_SHAPE,tf.nn.leaky_relu) # Activation here is TBD 
+      self.phi_st = tf.layers.dense(features,self.STATE_LATENT_SHAPE,tf.nn.leaky_relu) 
       self.phi_st_ = tf.layers.dense(features,self.STATE_LATENT_SHAPE,tf.nn.leaky_relu) 
       inv1 = tf.layers.dense(tf.concat([self.phi_st,self.phi_st_],axis=1),200,tf.nn.leaky_relu)
       self.a_hat = tf.layers.dense(inv1,self.ACTION_DIM,tf.nn.softmax)
@@ -71,27 +69,35 @@ class Curiosity(object):
   def forward_model(self,name):
     with tf.variable_scope(name,reuse=tf.AUTO_REUSE):
       f1 = tf.layers.dense(tf.concat([self.inp_at,self.phi_st],axis=1),200,tf.nn.leaky_relu)
-      self.phi_hat_st_ = tf.layers.dense(f1,self.STATE_LATENT_SHAPE,tf.nn.relu)
+      self.phi_hat_st_ = tf.layers.dense(f1,self.STATE_LATENT_SHAPE,tf.nn.leaky_relu)
     
     
     params = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES,scope=name)
     return params
     
   def bnn_forward_model(self,name):
-    # might need input size etc.
-    #with tf.variable_scope(name,reuse=tf.AUTO_REUSE):
-      #bf1 = tfp.layers.DenseFlipout(200,activation=tf.nn.relu)(tf.concat([self.inp_at,self.phi_st],axis=0))
-      #self.phi_hat_st_ =  tfp.layers.DenseFlipout(STATE_LATENT_SHAPE,tf.nn.relu)
-      
-    return None#bnn_forward
+    with tf.variable_scope(name,reuse=tf.AUTO_REUSE):
+      bf1 = tf.layers.dense(tf.concat([self.inp_at,self.phi_st],axis=1),200,tf.nn.leaky_relu)
+      self.phi_hat_st_ =  tfp.layers.DenseFlipout(self.STATE_LATENT_SHAPE,tf.nn.leaky_relu)(bf1)
+
+    params = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES,scope=name)
+    return params
   
   def bnn_inverse_model(self,name):
-#     with tf.variable_scope(name,reuse=tf.AUTO_REUSE):
-#       bnn_inverse = tf.keras.Sequential([
-#           #tfp.layers.DenseFlipout(200,activation=tf.nn.relu),
-#           #tfp.layers.DenseFlipout(STATE_LATENT_SHAPE,tf.nn.relu)
-#       ])
-    return None#bnn_inverse
+    with tf.variable_scope(name,reuse=tf.AUTO_REUSE):
+      if(len(self.OBS_DIM)>2):
+        features = tf.layers.dense(tf.concat([self.cnn_st,self.cnn_st_],axis=1),100,tf.nn.leaky_relu)
+      else:
+        features = tf.layers.dense(tf.concat([self.inp_st,self.inp_st_],axis=1),100,tf.nn.leaky_relu)
+
+      self.phi_st = tfp.layers.DenseFlipout(self.STATE_LATENT_SHAPE,tf.nn.leaky_relu)(features)
+      self.phi_st_ = tfp.layers.DenseFlipout(self.STATE_LATENT_SHAPE,tf.nn.leaky_relu)(features)
+      inv1 = tf.layers.dense(tf.concat([self.phi_st,self.phi_st_],axis=1),100,tf.nn.leaky_relu)
+      self.a_hat = tf.layers.dense(inv1,self.ACTION_DIM,tf.nn.softmax)
+      
+
+    params = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES,scope=name)
+    return params
       
       
       
@@ -108,12 +114,24 @@ class Curiosity(object):
     
     return s_t,s_t_,a_t_new
                          
-  
+  def repeat_data(self,s_t,s_t_,a_t,times):
+    s_t = np.repeat(s_t,times,0)
+    s_t_ = np.repeat(s_t_,times,0)
+    a_t = np.repeat(a_t,times,0)
+    return s_t,s_t_,a_t
+
   def get_reward(self,s_t,s_t_,a_t):
     
     s_t,s_t_,a_t = self.reshape_data(s_t,s_t_,a_t,len(self.OBS_DIM)>2)
+    
     if(self.uncertainty):
-      return None
+      
+      s_t,s_t_,a_t = self.repeat_data(s_t,s_t_,a_t,20)
+      
+      curs = self.sess.run(self.curiosity, {self.inp_st:s_t,self.inp_st_:s_t_,self.inp_at:a_t})
+
+      variance = np.var(curs)
+      return variance
     else:
       return self.sess.run(self.curiosity, {self.inp_st:s_t,self.inp_st_:s_t_,self.inp_at:a_t})
   

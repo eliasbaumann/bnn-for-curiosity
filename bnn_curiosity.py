@@ -9,7 +9,7 @@ import numpy as np
 import threading
 import queue
 import matplotlib.pyplot as plt
-
+from PIL import Image
 import gym
 
 # import ppo
@@ -32,7 +32,6 @@ env = gym.make(GAME_NAME)
 if(len(env.observation_space.shape)>2):
   env = WarpFrame(env,width=84,height=84,grayscale=True)
 
-# TODO have an option to downscale this maybe?
 OBS_DIM = env.observation_space.shape
 
 if(isinstance(env.action_space,gym.spaces.Discrete)):
@@ -40,13 +39,13 @@ if(isinstance(env.action_space,gym.spaces.Discrete)):
  
 
 
-EPISODE_MAX = 1000
-MIN_BATCH_SIZE = 64
+EPISODE_MAX = 100
+MIN_BATCH_SIZE = 128
 
 NUMBER_OF_WORKERS = 12
 
 #### Curiosity stuff:
-STATE_LATENT_SHAPE = 64
+STATE_LATENT_SHAPE = 128
 
 ### MAIN, in the actual implementation uncomment the next line and re-indent everything
 # if __name__=='__main__':
@@ -76,18 +75,25 @@ threads[-1].start()
 
 COORD.join(threads,stop_grace_period_secs=10)
 
-print('Running a test')
+print('saving test to file')
 
 
 done = True
+frames = []
 for t in range(3000):
+
   if(done):
     state = env.reset()
     state = np.expand_dims(state,axis=0)
-  env.render()
+  if(t%2==0):frames.append(Image.fromarray(env.render(mode='rgb_array')))
   action = GLOBAL_PPO.get_action(state)
   state,_,done,_ = env.step(action)
+  
   state = np.expand_dims(state,axis=0)
 
 
-
+   
+        
+with open('C:/Users/Elias/OneDrive/Winfo Studium/SS19/Masterarbeit/gifs/'+GAME_NAME+'.gif', 'wb') as f:  # change the path if necessary
+    im = Image.new('RGB', frames[0].size)
+    im.save(f, save_all=True, append_images=frames)

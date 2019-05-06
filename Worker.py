@@ -59,7 +59,7 @@ class Worker(object):
         # state_ = np.expand_dims(state_.flatten(),axis=0)
 
         curiosity = self.cur.get_reward(state,state_,action)
-        # reward += curiosity
+        # reward += curiosity<
         
         
         buffer_state.append(state.reshape((1,-1)))
@@ -102,7 +102,9 @@ class Worker(object):
             break
           if done:
             break
-      
+        if done:
+          state = self.env.reset()
+          state = np.expand_dims(state,axis=0)
       
       if len(GLOBAL_RUNNING_REWARD) == 0: 
         GLOBAL_RUNNING_REWARD.append(episode_reward)
