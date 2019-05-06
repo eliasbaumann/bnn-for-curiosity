@@ -30,7 +30,7 @@ GAME_NAME = 'Seaquest-v0'
 env = gym.make(GAME_NAME)
 
 if(len(env.observation_space.shape)>2):
-  env = WarpFrame(env,width=84,height=84,grayscale=True)
+  env = WarpFrame(env,width=84,height=84,grayscale=True,normalize=True)
 
 OBS_DIM = env.observation_space.shape
 
@@ -40,9 +40,9 @@ if(isinstance(env.action_space,gym.spaces.Discrete)):
 
 
 EPISODE_MAX = 1000
-MIN_BATCH_SIZE = 256
+MIN_BATCH_SIZE = 128
 
-NUMBER_OF_WORKERS = 24
+NUMBER_OF_WORKERS = 12
 
 #### Curiosity stuff:
 STATE_LATENT_SHAPE = 128
@@ -78,22 +78,16 @@ COORD.join(threads,stop_grace_period_secs=10)
 print('saving test to file')
 
 
-done = True
+done = False
+state = env.reset()
+state = np.expand_dims(state,axis=0)
 frames = []
-for t in range(3000):
-
-  if(done):
-    state = env.reset()
-    state = np.expand_dims(state,axis=0)
-  if(t%2==0):frames.append(Image.fromarray(env.render(mode='rgb_array')))
+while(not done):
+  frames.append(Image.fromarray(env.render(mode='rgb_array')))
   action = GLOBAL_PPO.get_action(state)
   state,_,done,_ = env.step(action)
-  
   state = np.expand_dims(state,axis=0)
 
-
-   
-        
 with open('C:/Users/Elias/OneDrive/Winfo Studium/SS19/Masterarbeit/gifs/'+GAME_NAME+'.gif', 'wb') as f:  # change the path if necessary
     im = Image.new('RGB', frames[0].size)
     im.save(f, save_all=True, append_images=frames)

@@ -36,12 +36,13 @@ def small_convnet(x, nl, feat_dim, last_nl, layernormalize, batchnorm=False):
     return x
 
 class WarpFrame(gym.ObservationWrapper):
-    def __init__(self, env, width=84, height=84, grayscale=True):
+    def __init__(self, env, width=84, height=84, grayscale=True,normalize=True):
         """Warp frames to 84x84 as done in the Nature paper and later work."""
         gym.ObservationWrapper.__init__(self, env)
         self.width = width
         self.height = height
         self.grayscale = grayscale
+        self.normalize = normalize
         if self.grayscale:
             self.observation_space = spaces.Box(low=0, high=255,
                 shape=(self.height, self.width, 1), dtype=np.uint8)
@@ -54,7 +55,8 @@ class WarpFrame(gym.ObservationWrapper):
             frame = cv2.cvtColor(frame, cv2.COLOR_RGB2GRAY)
             
         frame = cv2.resize(frame, (self.width, self.height), interpolation=cv2.INTER_AREA)
-        frame = cv2.normalize(frame, None, alpha=0, beta=1, norm_type=cv2.NORM_MINMAX, dtype=cv2.CV_32F)
+        if(self.normalize):
+            frame = cv2.normalize(frame, None, alpha=0, beta=1, norm_type=cv2.NORM_MINMAX, dtype=cv2.CV_32F)
         if self.grayscale:
             frame = np.expand_dims(frame, -1)
         return frame
