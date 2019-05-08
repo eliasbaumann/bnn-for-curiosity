@@ -130,15 +130,15 @@ class TfRunningMeanStd(object):
 
 def make_env(GAME_NAME):
     env = gym.make(GAME_NAME)
+    env = NoopResetEnv(env, noop_max=30)
+    env = MaxAndSkipEnv(env, skip=4)
     if(len(env.observation_space.shape) > 2):
-        env = NoopResetEnv(env, noop_max=30)
-        env = MaxAndSkipEnv(env, skip=4)
-        env = WarpFrame(env, 84, 84, True)
-        env = FrameStack(env, 4)
+        env = WarpFrame(env, 84, 84, True)    
+    env = FrameStack(env, 4)
     return env    
     
-def get_env_mean_std(env_name, n_steps=10000):
-    env = make_env(env_name)
+def get_env_mean_std(GAME_NAME, n_steps=10000):
+    env = make_env(GAME_NAME)
     states = []
     state = env.reset()
     states.append(np.asarray(state))
