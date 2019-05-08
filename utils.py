@@ -5,7 +5,7 @@ import tensorflow as tf
 from functools import partial
 import gym
 from gym import spaces
-from wrappers import WarpFrame,NoopResetEnv,FrameStack,MaxAndSkipEnv
+from wrappers import WarpFrame,NoopResetEnv,MaxAndSkipEnv,FrameStack
 
 def normc_initializer(std=1.0, axis=0):
     def _initializer(shape, dtype=None, partition_info=None):  # pylint: disable=W0613
@@ -25,8 +25,7 @@ fc = partial(tf.layers.dense, kernel_initializer=normc_initializer(1.))
 # last_nl =tf.nn.leaky_relu
 
 
-def small_convnet(x, nl, feat_dim, last_nl, obs_mean, obs_std,layernormalize, batchnorm=False):
-    x = tf.div_no_nan(tf.subtract(tf.to_float(x),obs_mean),obs_std)
+def small_convnet(x, nl, feat_dim, last_nl, layernormalize, batchnorm=False):
     bn = tf.layers.batch_normalization if batchnorm else lambda x: x
     x = bn(tf.layers.conv2d(x, filters=32,
                             kernel_size=8, strides=(4, 4), activation=nl))
@@ -150,3 +149,6 @@ def get_env_mean_std(GAME_NAME, n_steps=10000):
         states.append(np.asarray(state))
     mean,std = np.mean(states,axis=0).astype(np.float32),np.std(states,axis=0).mean().astype(np.float32)
     return mean,std
+
+def flatten_2d(x):
+    return tf.reshape(x, [-1] + x.get_shape().as_list()[1:])

@@ -4,7 +4,7 @@ import numpy as np
 
 from Curiosity import Curiosity
 
-from utils import small_convnet, RunningMeanStd
+from utils import small_convnet, RunningMeanStd, flatten_2d
 
 GLOBAL_UPDATE_COUNTER = 0
 GLOBAL_EPISODE = 0
@@ -66,9 +66,12 @@ class PPO(object):
         self.inp = tf.placeholder(
             tf.float32, (None,)+self.OBS_DIM, name='state')
         if(len(OBS_DIM) > 2):
+            self.inp = tf.div_no_nan(tf.subtract(tf.to_float(self.inp),self.OBS_MEAN),self.OBS_STD)
+            self.inp = flatten_2d(self.inp)
+            print(self.inp.get_shape())
             self.cnn = small_convnet(x=self.inp, nl=tf.nn.leaky_relu,
                                      feat_dim=self.feature_dims, last_nl=tf.nn.leaky_relu,
-                                     obs_mean=self.OBS_MEAN,obs_std=self.OBS_STD, layernormalize=False)
+                                     layernormalize=False)
             crit = tf.layers.dense(
                 self.cnn, 200, tf.nn.relu, kernel_initializer=tf.random_normal_initializer(0., .1))
         else:

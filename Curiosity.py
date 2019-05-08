@@ -2,7 +2,7 @@ import tensorflow as tf
 import tensorflow_probability as tfp
 import numpy as np
 
-from utils import small_convnet
+from utils import small_convnet,flatten_2d
 
 
 class Curiosity(object):
@@ -34,10 +34,14 @@ class Curiosity(object):
         self.feature_dims = 256
 
         if(len(self.OBS_DIM) > 2):
+            
+            self.inp_st = flatten_2d(tf.div_no_nan(tf.subtract(tf.to_float(self.inp_st),self.OBS_MEAN),self.OBS_STD))
+            self.inp_st_ = flatten_2d(tf.div_no_nan(tf.subtract(tf.to_float(self.inp_st_),self.OBS_MEAN),self.OBS_STD))
+
             self.cnn_st = small_convnet(
-                self.inp_st, tf.nn.leaky_relu, self.feature_dims, tf.nn.leaky_relu,self.OBS_MEAN,self.OBS_STD, False)
+                self.inp_st, tf.nn.leaky_relu, self.feature_dims, tf.nn.leaky_relu, False)
             self.cnn_st_ = small_convnet(
-                self.inp_st_, tf.nn.leaky_relu, self.feature_dims, tf.nn.leaky_relu,self.OBS_MEAN,self.OBS_STD, False)
+                self.inp_st_, tf.nn.leaky_relu, self.feature_dims, tf.nn.leaky_relu, False)
 
         if(self.uncertainty):
             self.i_model = self.bnn_inverse_model('BNN_inverse')

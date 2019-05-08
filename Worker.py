@@ -119,6 +119,6 @@ class Worker(object):
                     GLOBAL_RUNNING_REWARD[-1]*0.9+np.mean(episode_reward)*0.1)
             PPO.alterGlobalEpisode(1)  # GLOBAL_EPISODE += 1
             print('{0:.1f}%'.format(PPO.GLOBAL_EPISODE/self.EPISODE_MAX*100), '|W%2i' %
-                  self.wid,  '|Mean_Ep_r: %.4g' % np.mean(episode_reward), 'Cur_r %.10f' % curiosity)
+                  self.wid,  '|Mean_Ep_r: %.4g' % np.mean(episode_reward), 'Cur_r %.4g' % curiosity)
 
         print(self.wid, ': stopped')
