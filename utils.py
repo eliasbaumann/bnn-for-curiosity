@@ -5,8 +5,7 @@ import tensorflow as tf
 from functools import partial
 import gym
 from gym import spaces
-import cv2
-
+from wrappers import WarpFrame,NoopResetEnv,FrameStack,MaxAndSkipEnv
 
 def normc_initializer(std=1.0, axis=0):
     def _initializer(shape, dtype=None, partition_info=None):  # pylint: disable=W0613
@@ -42,38 +41,6 @@ def small_convnet(x, nl, feat_dim, last_nl, obs_mean, obs_std,layernormalize, ba
     if layernormalize:
         x = layernorm(x)
     return x
-
-
-class WarpFrame(gym.ObservationWrapper):
-    def __init__(self, env, width=84, height=84, grayscale=True, normalize=True):
-        """Warp frames to 84x84 as done in the Nature paper and later work."""
-        gym.ObservationWrapper.__init__(self, env)
-        self.width = width
-        self.height = height
-        self.grayscale = grayscale
-        self.normalize = normalize
-        if self.grayscale:
-            self.observation_space = spaces.Box(low=0, high=255,
-                                                shape=(self.height, self.width, 1), dtype=np.uint8)
-        else:
-            self.observation_space = spaces.Box(low=0, high=255,
-                                                shape=(self.height, self.width, 3), dtype=np.uint8)
-
-    def observation(self, frame):
-        if self.grayscale:
-            frame = cv2.cvtColor(frame, cv2.COLOR_RGB2GRAY)
-
-        frame = cv2.resize(frame, (self.width, self.height),
-                           interpolation=cv2.INTER_AREA)
-        if(self.normalize):
-            frame = cv2.normalize(
-                frame, None, alpha=0, beta=1, norm_type=cv2.NORM_MINMAX, dtype=cv2.CV_32F)
-        if self.grayscale:
-            frame = np.expand_dims(frame, -1)
-        return frame
-
-# taken from OpenAI baselines which requires muJoCo but i dont want to purchase a license just yet
-
 
 class RunningMeanStd(object):
     # https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance#Parallel_algorithm
@@ -161,11 +128,17 @@ class TfRunningMeanStd(object):
         self._set_mean_var_count()
 
 
-def get_env_mean_std(env_name, n_steps=10000):
-    env = gym.make(env_name)
+def make_env(GAME_NAME):
+    env = gym.make(GAME_NAME)
     if(len(env.observation_space.shape) > 2):
-        env = WarpFrame(env, width=84, height=84,
-                        grayscale=True, normalize=True)
+        env = NoopResetEnv(env, noop_max=30)
+        env = MaxAndSkipEnv(env, skip=4)
+        env = WarpFrame(env, 84, 84, True)
+        env = FrameStack(env, 4)
+    return env    
+    
+def get_env_mean_std(env_name, n_steps=10000):
+    env = make_env(env_name)
     states = []
     state = env.reset()
     states.append(np.asarray(state))

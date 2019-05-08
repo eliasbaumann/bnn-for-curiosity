@@ -21,16 +21,13 @@ from Curiosity import Curiosity
 # import Worker
 from Worker import Worker
 
-from utils import WarpFrame,get_env_mean_std
+from utils import get_env_mean_std,make_env
 # starting out by writing ppo
 # Next step would be to implement curiosity. But this should be the minimal baseline because thats already implemented in the Unity MLagents toolkit...<
 
 tf.logging.set_verbosity(tf.logging.INFO)
 GAME_NAME = 'Seaquest-v0'
-env = gym.make(GAME_NAME)
-
-if(len(env.observation_space.shape) > 2):
-    env = WarpFrame(env, width=84, height=84, grayscale=True, normalize=True)
+env = make_env(GAME_NAME)
 
 OBS_DIM = env.observation_space.shape
 

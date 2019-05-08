@@ -6,7 +6,7 @@ import numpy as np
 import PPO
 import gym
 
-from utils import WarpFrame
+from utils import make_env
 
 GLOBAL_RUNNING_REWARD = []
 EPISODE_LENGTH = 10000
@@ -15,9 +15,7 @@ EPISODE_LENGTH = 10000
 class Worker(object):
     def __init__(self, wid, UPDATE_EVENT, ROLLING_EVENT, COORD, QUEUE, GLOBAL_CURIOSITY, GLOBAL_PPO, GAME_NAME, EPISODE_MAX=1000, MIN_BATCH_SIZE=64, GAMMA=.9):
         self.wid = wid
-        self.env = gym.make(GAME_NAME)
-        if(len(self.env.observation_space.shape) > 2):
-            self.env = WarpFrame(self.env, 84, 84, True)
+        self.env = make_env(GAME_NAME)
 
         self.UPDATE_EVENT = UPDATE_EVENT
         self.ROLLING_EVENT = ROLLING_EVENT
