@@ -22,8 +22,6 @@ from Curiosity import Curiosity
 from Worker import Worker
 
 from utils import get_env_mean_std,make_env
-# starting out by writing ppo
-# Next step would be to implement curiosity. But this should be the minimal baseline because thats already implemented in the Unity MLagents toolkit...<
 
 tf.logging.set_verbosity(tf.logging.INFO)
 GAME_NAME = 'Seaquest-v0'
@@ -35,10 +33,7 @@ if(isinstance(env.action_space, gym.spaces.Discrete)):
     ACTION_DIM = env.action_space.n
 
 # hidsize = 512
-
-
-
-
+tf.reset_default_graph()
 EPISODE_MAX = 1000
 MIN_BATCH_SIZE = 128
 
@@ -48,7 +43,7 @@ NUMBER_OF_WORKERS = 12
 STATE_LATENT_SHAPE = 512
 
 # if __name__=='__main__':
-OBS_MEAN,OBS_STD = get_env_mean_std(GAME_NAME, n_steps=10000)
+OBS_MEAN,OBS_STD = get_env_mean_std(GAME_NAME, n_steps=10)
 
 tf.logging.set_verbosity(tf.logging.INFO)
 

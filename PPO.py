@@ -110,7 +110,7 @@ class PPO(object):
             self.ACTOR_LR).minimize(self.actor_loss)
 
         self.curiosity = Curiosity(
-            self.sess, self.STATE_LATENT_SHAPE, self.OBS_DIM, self.ACTION_DIM, self.UPDATE_STEP,self.OBS_MEAN,self.OBS_STD)
+            self.sess, self.STATE_LATENT_SHAPE, self.OBS_DIM, self.ACTION_DIM, self.UPDATE_STEP,self.OBS_MEAN,self.OBS_STD,self)
 
         self.r_rew_tracker = RunningMeanStd()
 

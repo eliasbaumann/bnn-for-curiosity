@@ -6,10 +6,11 @@ from utils import small_convnet,flatten_2d
 
 
 class Curiosity(object):
-    def __init__(self, sess, STATE_LATENT_SHAPE, OBS_DIM, ACTION_DIM, UPDATE_STEP,OBS_MEAN,OBS_STD, INV_LR=.0001, FOR_LR=.0001, ETA=1, uncertainty=True):
+    def __init__(self, sess, STATE_LATENT_SHAPE, OBS_DIM, ACTION_DIM, UPDATE_STEP,OBS_MEAN,OBS_STD,PPO, INV_LR=.0001, FOR_LR=.0001, ETA=1, uncertainty=True):
 
         self.sess = sess
         self.uncertainty = uncertainty
+        self.scope = 'feature_extract'
 
         self.STATE_LATENT_SHAPE = STATE_LATENT_SHAPE
         self.OBS_DIM = OBS_DIM
@@ -23,9 +24,11 @@ class Curiosity(object):
         self.ETA = ETA
         self.UPDATE_STEP = UPDATE_STEP
 
-        self.inp_st = tf.placeholder(
-            tf.float32, (None,)+self.OBS_DIM, name='S_t_input')
-        self.inp_st_ = tf.placeholder(
+        self.policy = PPO
+        self.inp = PPO.inp
+        # self.inp_st = tf.placeholder(
+        #     tf.float32, (None,)+self.OBS_DIM, name='S_t_input')
+        self.inp_1 = tf.placeholder(
             tf.float32, (None,)+self.OBS_DIM, name='S_t_1_input')
         self.inp_at = tf.placeholder(
             tf.float32, [None, self.ACTION_DIM], name='A_t_input')
@@ -34,15 +37,9 @@ class Curiosity(object):
         self.feature_dims = 256
 
         if(len(self.OBS_DIM) > 2):
-            
-            self.inp_st = flatten_2d(tf.div_no_nan(tf.subtract(tf.to_float(self.inp_st),self.OBS_MEAN),self.OBS_STD))
-            self.inp_st_ = flatten_2d(tf.div_no_nan(tf.subtract(tf.to_float(self.inp_st_),self.OBS_MEAN),self.OBS_STD))
-
-            self.cnn_st = small_convnet(
-                self.inp_st, tf.nn.leaky_relu, self.feature_dims, tf.nn.leaky_relu, False)
-            self.cnn_st_ = small_convnet(
-                self.inp_st_, tf.nn.leaky_relu, self.feature_dims, tf.nn.leaky_relu, False)
-
+            self.cnn = self.get_features(self.inp,reuse=False)
+            self.cnn_1 = self.get_features(self.inp_1,reuse=True)
+        
         if(self.uncertainty):
             self.i_model = self.bnn_inverse_model('BNN_inverse')
             self.f_model = self.bnn_forward_model('BNN_forward')
@@ -67,10 +64,10 @@ class Curiosity(object):
         with tf.variable_scope(name, reuse=tf.AUTO_REUSE):
             if(len(self.OBS_DIM) > 2):
                 features = tf.layers.dense(
-                    tf.concat([self.cnn_st, self.cnn_st_], axis=1), 200, tf.nn.leaky_relu)
+                    tf.concat([self.cnn, self.cnn_1], axis=1), 200, tf.nn.leaky_relu)
             else:
                 features = tf.layers.dense(
-                    tf.concat([self.inp_st, self.inp_st_], axis=1), 200, tf.nn.leaky_relu)
+                    tf.concat([self.inp, self.inp_1], axis=1), 200, tf.nn.leaky_relu)
 
             self.phi_st = tf.layers.dense(
                 features, self.STATE_LATENT_SHAPE, tf.nn.leaky_relu)
@@ -107,10 +104,10 @@ class Curiosity(object):
         with tf.variable_scope(name, reuse=tf.AUTO_REUSE):
             if(len(self.OBS_DIM) > 2):
                 features = tf.layers.dense(
-                    tf.concat([self.cnn_st, self.cnn_st_], axis=1), 100, tf.nn.leaky_relu)
+                    tf.concat([self.cnn, self.cnn_1], axis=1), 100, tf.nn.leaky_relu)
             else:
                 features = tf.layers.dense(
-                    tf.concat([self.inp_st, self.inp_st_], axis=1), 100, tf.nn.leaky_relu)
+                    tf.concat([self.inp, self.inp_1], axis=1), 100, tf.nn.leaky_relu)
 
             self.phi_st = tfp.layers.DenseFlipout(
                 self.STATE_LATENT_SHAPE, tf.nn.leaky_relu)(features)
@@ -151,18 +148,24 @@ class Curiosity(object):
             s_t, s_t_, a_t = self.repeat_data(s_t, s_t_, a_t, 50)
 
             curs = self.sess.run(
-                self.curiosity, {self.inp_st: s_t, self.inp_st_: s_t_, self.inp_at: a_t})
+                self.curiosity, {self.inp: s_t, self.inp_1: s_t_, self.inp_at: a_t})
 
             variance = np.var(curs)
             return variance
         else:
-            return self.sess.run(self.curiosity, {self.inp_st: s_t, self.inp_st_: s_t_, self.inp_at: a_t})
+            return self.sess.run(self.curiosity, {self.inp: s_t, self.inp_1: s_t_, self.inp_at: a_t})
+    
+    def get_features(self,x,reuse):
+        with tf.variable_scope(self.scope,reuse=reuse):
+            x = (tf.to_float(x) - self.OBS_MEAN) / self.OBS_STD
+            x = small_convnet(x, nl=tf.nn.leaky_relu, feat_dim=self.feature_dims, last_nl=None,layernormalize=True)
+        return x
 
     def update(self, state, state_, action):
 
         state, state_, action = self.reshape_data(
             state, state_, action, len(self.OBS_DIM) > 2)
-        [self.sess.run(self.inv_opt, {self.inp_st: state, self.inp_st_: state_,
+        [self.sess.run(self.inv_opt, {self.inp: state, self.inp_1: state_,
                                       self.inp_at: action}) for _ in range(self.UPDATE_STEP)]
-        [self.sess.run(self.for_opt, {self.inp_st: state, self.inp_st_: state_,
+        [self.sess.run(self.for_opt, {self.inp: state, self.inp_1: state_,
                                       self.inp_at: action}) for _ in range(self.UPDATE_STEP)]
