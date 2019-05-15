@@ -1,30 +1,20 @@
 # -*- coding: utf-8 -*-
 
 import tensorflow as tf
-
-#import tensorflow_probability as tfp
-
 import numpy as np
-
 import threading
 import queue
-import matplotlib.pyplot as plt
 from PIL import Image
 import gym
 
-# import ppo
+
 from PPO import PPO
-
-# import curiosity
 from Curiosity import Curiosity
-
-# import Worker
 from Worker import Worker
-
 from utils import get_env_mean_std,make_env
 
 tf.logging.set_verbosity(tf.logging.INFO)
-GAME_NAME = 'Breakout-v0'
+GAME_NAME = 'Seaquest-v0'
 env = make_env(GAME_NAME)
 
 OBS_DIM = env.observation_space.shape
