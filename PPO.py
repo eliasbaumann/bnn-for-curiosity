@@ -1,5 +1,7 @@
 import tensorflow as tf
 import numpy as np
+import os
+FILE_PATH = os.path.dirname(os.path.abspath(__file__))
 
 
 from Curiosity import Curiosity
@@ -42,7 +44,7 @@ class PPO(object):
         params = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope=name)
         return action_probs, params
 
-    def __init__(self, STATE_LATENT_SHAPE, OBS_DIM, ACTION_DIM, UPDATE_EVENT, ROLLING_EVENT, COORD, QUEUE,OBS_MEAN,OBS_STD, CRITIC_LR=.0001, ACTOR_LR=.0002, EPSILON=.2, EPISODE_MAX=1000, UPDATE_STEP=10):
+    def __init__(self, STATE_LATENT_SHAPE, OBS_DIM, ACTION_DIM, UPDATE_EVENT, ROLLING_EVENT, COORD, QUEUE,OBS_MEAN,OBS_STD,feature_dims=256, CRITIC_LR=.0001, ACTOR_LR=.0002, EPSILON=.2, EPISODE_MAX=1000, UPDATE_STEP=10):
         self.sess = tf.Session()
         self.OBS_DIM = OBS_DIM
         self.ACTION_DIM = ACTION_DIM
@@ -60,8 +62,7 @@ class PPO(object):
 
         self.OBS_MEAN =OBS_MEAN
         self.OBS_STD = OBS_STD
-        # TODO give as argument
-        self.feature_dims = 256
+        self.feature_dims = feature_dims
 
         self.inp = tf.placeholder(
             tf.float32, (None,)+self.OBS_DIM, name='state')
@@ -112,8 +113,10 @@ class PPO(object):
             self.sess, self.STATE_LATENT_SHAPE, self.OBS_DIM, self.ACTION_DIM, self.UPDATE_STEP,self.OBS_MEAN,self.OBS_STD,self.inp)
 
         self.r_rew_tracker = RunningMeanStd()
-
+        self.saver = tf.train.Saver()
         self.sess.run(tf.global_variables_initializer())
+        # self.saver.save(self.sess,FILE_PATH+'\model')
+        # https://cv-tricks.com/tensorflow-tutorial/save-restore-tensorflow-models-quick-complete-tutorial/
 
     def get_action(self, state):
         action_probs = self.sess.run(self.policy, {self.inp: state})
@@ -125,7 +128,6 @@ class PPO(object):
         return action
 
     def get_value(self, state):
-        # TODO same as with get_action, need to figure out what comes out of here...
         return self.sess.run(self.value, {self.inp: state})[0, 0]
 
     def norm_adv(self, adv):
@@ -166,5 +168,5 @@ class PPO(object):
                 self.curiosity.update(state, state_, action)
 
                 self.UPDATE_EVENT.clear()        # updating finished
-                resetGlobalUpdateCounter()  # GLOBAL_UPDATE_COUNTER = 0   # reset counter
+                resetGlobalUpdateCounter()     # reset counter
                 self.ROLLING_EVENT.set()         # set roll-out available

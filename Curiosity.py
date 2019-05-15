@@ -4,9 +4,8 @@ import numpy as np
 
 from utils import small_convnet,flatten_2d
 
-
 class Curiosity(object):
-    def __init__(self, sess, STATE_LATENT_SHAPE, OBS_DIM, ACTION_DIM, UPDATE_STEP,OBS_MEAN,OBS_STD,PPO_input, INV_LR=.0001, FOR_LR=.0001, ETA=1, uncertainty=True):
+    def __init__(self, sess, STATE_LATENT_SHAPE, OBS_DIM, ACTION_DIM, UPDATE_STEP,OBS_MEAN,OBS_STD,PPO_input,feature_dims=256, INV_LR=.0001, FOR_LR=.0001, ETA=1, uncertainty=True):
 
         self.sess = sess
         self.uncertainty = uncertainty
@@ -25,15 +24,12 @@ class Curiosity(object):
         self.UPDATE_STEP = UPDATE_STEP
 
         self.inp = PPO_input
-        # self.inp_st = tf.placeholder(
-        #     tf.float32, (None,)+self.OBS_DIM, name='S_t_input')
         self.inp_1 = tf.placeholder(
             tf.float32, (None,)+self.OBS_DIM, name='S_t_1_input')
         self.inp_at = tf.placeholder(
             tf.float32, [None, self.ACTION_DIM], name='A_t_input')
-
-        # TODO give as argument
-        self.feature_dims = 256
+        
+        self.feature_dims = feature_dims
 
         if(len(self.OBS_DIM) > 2):
             self.cnn = self.get_features(self.inp,reuse=False)
