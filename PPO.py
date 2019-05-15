@@ -67,8 +67,7 @@ class PPO(object):
             tf.float32, (None,)+self.OBS_DIM, name='state')
         if(len(OBS_DIM) > 2):
             self.inp = tf.div_no_nan(tf.subtract(tf.to_float(self.inp),self.OBS_MEAN),self.OBS_STD)
-            self.inp = flatten_2d(self.inp)
-            print(self.inp.get_shape())
+            # self.inp = flatten_2d(self.inp)
             self.cnn = small_convnet(x=self.inp, nl=tf.nn.leaky_relu,
                                      feat_dim=self.feature_dims, last_nl=tf.nn.leaky_relu,
                                      layernormalize=False)
@@ -110,7 +109,7 @@ class PPO(object):
             self.ACTOR_LR).minimize(self.actor_loss)
 
         self.curiosity = Curiosity(
-            self.sess, self.STATE_LATENT_SHAPE, self.OBS_DIM, self.ACTION_DIM, self.UPDATE_STEP,self.OBS_MEAN,self.OBS_STD,self)
+            self.sess, self.STATE_LATENT_SHAPE, self.OBS_DIM, self.ACTION_DIM, self.UPDATE_STEP,self.OBS_MEAN,self.OBS_STD,self.inp)
 
         self.r_rew_tracker = RunningMeanStd()
 
