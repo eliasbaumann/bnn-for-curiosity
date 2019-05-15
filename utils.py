@@ -42,7 +42,6 @@ def small_convnet(x, nl, feat_dim, last_nl, layernormalize, batchnorm=False):
     return x
 
 class RunningMeanStd(object):
-    # https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance#Parallel_algorithm
     def __init__(self, epsilon=1e-4, shape=()):
         self.mean = np.zeros(shape, 'float64')
         self.var = np.ones(shape, 'float64')
@@ -74,12 +73,6 @@ def update_mean_var_count_from_moments(mean, var, count, batch_mean, batch_var, 
 
 
 class TfRunningMeanStd(object):
-    # https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance#Parallel_algorithm
-    '''
-    TensorFlow variables-based implmentation of computing running mean and std
-    Benefit of this implementation is that it can be saved / loaded together with the tensorflow model
-    '''
-
     def __init__(self, epsilon=1e-4, shape=(), scope=''):
         sess = tf.get_default_session()
 
