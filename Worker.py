@@ -59,28 +59,19 @@ class Worker(object):
                 buffer_state.append(state.reshape((1, -1)))
                 buffer_state_.append(state_.reshape((1, -1)))
                 buffer_action.append(action)
-                if(self.cur.uncertainty == True):
-                    curiosity = self.cur.get_reward(state, state_, action)
-                    buffer_reward.append(curiosity)
-                else:
-                    curiosity = None
-                    buffer_reward.append(reward-1)
-
+                
+                curiosity = self.cur.get_reward(state, state_, action)
+                buffer_reward.append(curiosity)
+            
                 state = state_
                 episode_reward += reward
                 PPO.alterGlobalUpdateCounter(1)  # GLOBAL_UPDATE_COUNTER += 1
 
                 # If enough state,action,reward triples are collected:
                 if t == EPISODE_LENGTH-1 or PPO.GLOBAL_UPDATE_COUNTER >= self.MIN_BATCH_SIZE:  # or done:
-                    # if done:
-                    #   state_value = 0
-                    # else:
-                    #   state_value = self.ppo.get_value(state_)
-
                     state_value = self.ppo.get_value(state_)
-
                     discounted_reward = []
-                    # [::-1] he adds that, but need to check if needed
+                    
                     for r in buffer_reward[::-1]:
                         state_value = r + self.GAMMA * state_value
                         discounted_reward.append(state_value)
@@ -113,12 +104,12 @@ class Worker(object):
                     state = np.expand_dims(state, axis=0)
 
             if len(GLOBAL_RUNNING_REWARD) == 0:
-                GLOBAL_RUNNING_REWARD.append(np.mean(episode_reward))
+                GLOBAL_RUNNING_REWARD.append(np.mean(reward_list))
             else:
                 GLOBAL_RUNNING_REWARD.append(
-                    GLOBAL_RUNNING_REWARD[-1]*0.9+np.mean(episode_reward)*0.1)
+                    GLOBAL_RUNNING_REWARD[-1]*0.9+np.mean(reward_list)*0.1)
             PPO.alterGlobalEpisode(1)  # GLOBAL_EPISODE += 1
             print('{0:.1f}%'.format(PPO.GLOBAL_EPISODE/self.EPISODE_MAX*100), '|W%2i' %
-                  self.wid,  '|Mean_Ep_r: %.4g' % np.mean(episode_reward), 'Cur_r %.4g' % curiosity)
+                  self.wid,  '|Mean_Ep_r: %.4g' % np.mean(reward_list), 'Cur_r %.4g' % curiosity)
 
         print(self.wid, ': stopped')
