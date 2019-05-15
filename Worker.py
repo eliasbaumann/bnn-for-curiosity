@@ -9,7 +9,7 @@ import gym
 from utils import make_env
 
 GLOBAL_RUNNING_REWARD = []
-EPISODE_LENGTH = 10000
+EPISODE_LENGTH = 5000
 
 
 class Worker(object):

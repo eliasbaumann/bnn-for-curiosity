@@ -24,7 +24,7 @@ from Worker import Worker
 from utils import get_env_mean_std,make_env
 
 tf.logging.set_verbosity(tf.logging.INFO)
-GAME_NAME = 'Seaquest-v0'
+GAME_NAME = 'Breakout-v0'
 env = make_env(GAME_NAME)
 
 OBS_DIM = env.observation_space.shape
@@ -43,7 +43,7 @@ NUMBER_OF_WORKERS = 12
 STATE_LATENT_SHAPE = 512
 
 # if __name__=='__main__':
-OBS_MEAN,OBS_STD = get_env_mean_std(GAME_NAME, n_steps=10)
+OBS_MEAN,OBS_STD = get_env_mean_std(GAME_NAME, n_steps=10000)
 
 tf.logging.set_verbosity(tf.logging.INFO)
 
@@ -71,7 +71,7 @@ ppo_update_thread = threading.Thread(target=GLOBAL_PPO.update)
 threads.append(ppo_update_thread)
 threads[-1].start()
 
-COORD.join(threads, stop_grace_period_secs=10)
+COORD.join(threads, stop_grace_period_secs=10000)
 
 print('saving test to file')
 

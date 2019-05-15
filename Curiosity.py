@@ -92,8 +92,8 @@ class Curiosity(object):
 
     def bnn_forward_model(self, name):
         with tf.variable_scope(name, reuse=tf.AUTO_REUSE):
-            bf1 = tf.layers.dense(
-                tf.concat([self.inp_at, self.phi_st], axis=1), 200, tf.nn.leaky_relu)
+            bf1 = tfp.layers.DenseFlipout(
+                200, tf.nn.leaky_relu)(tf.concat([self.inp_at, self.phi_st], axis=1))
             self.phi_hat_st_ = tfp.layers.DenseFlipout(
                 self.STATE_LATENT_SHAPE, tf.nn.leaky_relu)(bf1)
 
@@ -103,19 +103,17 @@ class Curiosity(object):
     def bnn_inverse_model(self, name):
         with tf.variable_scope(name, reuse=tf.AUTO_REUSE):
             if(len(self.OBS_DIM) > 2):
-                features = tf.layers.dense(
-                    tf.concat([self.cnn, self.cnn_1], axis=1), 100, tf.nn.leaky_relu)
+                features = tfp.layers.DenseFlipout(100, tf.nn.leaky_relu)(tf.concat([self.cnn, self.cnn_1], axis=1))
             else:
-                features = tf.layers.dense(
-                    tf.concat([self.inp, self.inp_1], axis=1), 100, tf.nn.leaky_relu)
+                features = tfp.layers.DenseFlipout(100, tf.nn.leaky_relu)(tf.concat([self.inp, self.inp_1], axis=1))
 
             self.phi_st = tfp.layers.DenseFlipout(
                 self.STATE_LATENT_SHAPE, tf.nn.leaky_relu)(features)
             self.phi_st_ = tfp.layers.DenseFlipout(
                 self.STATE_LATENT_SHAPE, tf.nn.leaky_relu)(features)
-            inv1 = tf.layers.dense(
-                tf.concat([self.phi_st, self.phi_st_], axis=1), 100, tf.nn.leaky_relu)
-            self.a_hat = tf.layers.dense(inv1, self.ACTION_DIM, tf.nn.softmax)
+            inv1 = tfp.layers.DenseFlipout(
+                100, tf.nn.leaky_relu)(tf.concat([self.phi_st, self.phi_st_], axis=1))
+            self.a_hat = tfp.layers.DenseFlipout(self.ACTION_DIM, tf.nn.softmax)(inv1)
 
         params = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope=name)
         return params
