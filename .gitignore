@@ -1,2 +1,5 @@
+#ignore test file
 test.py
+
+#ignore python cache
 *.pyc
