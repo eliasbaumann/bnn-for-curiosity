@@ -44,7 +44,7 @@ class PPO(object):
         params = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope=name)
         return action_probs, params
 
-    def __init__(self, STATE_LATENT_SHAPE, OBS_DIM, ACTION_DIM, UPDATE_EVENT, ROLLING_EVENT, COORD, QUEUE,OBS_MEAN,OBS_STD,feature_dims=256, CRITIC_LR=.0001, ACTOR_LR=.0002, EPSILON=.2, EPISODE_MAX=1000, UPDATE_STEP=10):
+    def __init__(self, STATE_LATENT_SHAPE, OBS_DIM, ACTION_DIM, UPDATE_EVENT, ROLLING_EVENT, COORD, QUEUE,OBS_MEAN,OBS_STD,feature_dims=256, CRITIC_LR=.0001, ACTOR_LR=.0002, EPSILON=.2, EPISODE_MAX=1000,MIN_BATCH_SIZE=64, UPDATE_STEP=10):
         self.sess = tf.Session()
         self.OBS_DIM = OBS_DIM
         self.ACTION_DIM = ACTION_DIM
@@ -54,6 +54,7 @@ class PPO(object):
         self.EPISODE_MAX = EPISODE_MAX
         self.UPDATE_STEP = UPDATE_STEP
         self.STATE_LATENT_SHAPE = STATE_LATENT_SHAPE
+        self.MIN_BATCH_SIZE = MIN_BATCH_SIZE
 
         self.UPDATE_EVENT = UPDATE_EVENT
         self.ROLLING_EVENT = ROLLING_EVENT
@@ -110,7 +111,7 @@ class PPO(object):
             self.ACTOR_LR).minimize(self.actor_loss)
 
         self.curiosity = Curiosity(
-            self.sess, self.STATE_LATENT_SHAPE, self.OBS_DIM, self.ACTION_DIM, self.UPDATE_STEP,self.OBS_MEAN,self.OBS_STD,self.inp)
+            self.sess, self.STATE_LATENT_SHAPE, self.OBS_DIM, self.ACTION_DIM, self.UPDATE_STEP,self.OBS_MEAN,self.OBS_STD,self.inp,MIN_BATCH_SIZE=self.MIN_BATCH_SIZE)
 
         self.r_rew_tracker = RunningMeanStd()
         self.saver = tf.train.Saver()
@@ -160,9 +161,9 @@ class PPO(object):
                 normalized_adv = self.norm_adv(advantage)
 
                 # update actor and critic in a update loop
-                res_al = [self.sess.run([self.actor_train_opt, self.actor_loss], {
+                [self.sess.run([self.actor_train_opt, self.actor_loss], {
                                         self.inp: state, self.action: action, self.full_adv: normalized_adv}) for _ in range(self.UPDATE_STEP)]
-                res_cl = [self.sess.run([self.critic_train_opt, self.critic_loss], {
+                [self.sess.run([self.critic_train_opt, self.critic_loss], {
                                         self.inp: state, self.dc_reward: reward}) for _ in range(self.UPDATE_STEP)]
 
                 self.curiosity.update(state, state_, action)

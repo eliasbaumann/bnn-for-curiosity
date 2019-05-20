@@ -5,7 +5,7 @@ import numpy as np
 from utils import small_convnet,flatten_2d
 
 class Curiosity(object):
-    def __init__(self, sess, STATE_LATENT_SHAPE, OBS_DIM, ACTION_DIM, UPDATE_STEP,OBS_MEAN,OBS_STD,PPO_input,feature_dims=256, INV_LR=.0001, FOR_LR=.0001, ETA=1, uncertainty=True):
+    def __init__(self, sess, STATE_LATENT_SHAPE, OBS_DIM, ACTION_DIM, UPDATE_STEP,OBS_MEAN,OBS_STD,PPO_input,feature_dims=256, INV_LR=.0001, FOR_LR=.0001, ETA=1, uncertainty=True,MIN_BATCH_SIZE=64):
 
         self.sess = sess
         self.uncertainty = uncertainty
@@ -22,6 +22,7 @@ class Curiosity(object):
         self.FOR_LR = FOR_LR
         self.ETA = ETA
         self.UPDATE_STEP = UPDATE_STEP
+        self.MIN_BATCH_SIZE = MIN_BATCH_SIZE
 
         self.inp = PPO_input
         self.inp_1 = tf.placeholder(
@@ -51,8 +52,8 @@ class Curiosity(object):
             ETA, 2.0) * tf.reduce_mean(tf.square(tf.subtract(self.phi_hat_st_, self.phi_st)), axis=1)
 
         if(self.uncertainty):
-            kl_i = np.sum(self.i_losses)/5000 #??? 5000 is current number of examples per epoch??? TODO
-            kl_f = np.sum(self.f_losses)/5000
+            kl_i = np.sum(self.i_losses)/self.MIN_BATCH_SIZE #TODO: what exactly to we need to use as divisor?
+            kl_f = np.sum(self.f_losses)/self.MIN_BATCH_SIZE
             self.inverse_loss+=kl_i
             self.forward_loss+=kl_f
 
