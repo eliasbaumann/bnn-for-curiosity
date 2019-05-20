@@ -36,8 +36,8 @@ class Curiosity(object):
             self.cnn_1 = self.get_features(self.inp_1,reuse=True)
         
         if(self.uncertainty):
-            self.i_model = self.bnn_inverse_model('BNN_inverse')
-            self.f_model = self.bnn_forward_model('BNN_forward')
+            self.i_model,self.i_losses = self.bnn_inverse_model('BNN_inverse')
+            self.f_model,self.f_losses = self.bnn_forward_model('BNN_forward')
         else:
             self.i_model = self.inverse_model('ICM_inverse')
             self.f_model = self.forward_model('ICM_forward')
@@ -49,6 +49,12 @@ class Curiosity(object):
                 self.phi_hat_st_, self.phi_st)))
         self.curiosity = tf.divide(
             ETA, 2.0) * tf.reduce_mean(tf.square(tf.subtract(self.phi_hat_st_, self.phi_st)), axis=1)
+
+        if(self.uncertainty):
+            kl_i = np.sum(self.i_losses)/5000 #??? 5000 is current number of examples per epoch??? TODO
+            kl_f = np.sum(self.f_losses)/5000
+            self.inverse_loss+=kl_i
+            self.forward_loss+=kl_f
 
         self.inv_opt = tf.train.AdamOptimizer(
             INV_LR).minimize(self.inverse_loss)
@@ -89,11 +95,13 @@ class Curiosity(object):
         with tf.variable_scope(name, reuse=tf.AUTO_REUSE):
             bf1 = tfp.layers.DenseFlipout(
                 200, tf.nn.leaky_relu)(tf.concat([self.inp_at, self.phi_st], axis=1))
-            self.phi_hat_st_ = tfp.layers.DenseFlipout(
-                self.STATE_LATENT_SHAPE, tf.nn.leaky_relu)(bf1)
+            flipout_layer = tfp.layers.DenseFlipout(
+                self.STATE_LATENT_SHAPE, tf.nn.leaky_relu)
+            self.phi_hat_st_ = flipout_layer(bf1)
+            losses = flipout_layer.losses
 
         params = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope=name)
-        return params
+        return params,losses
 
     def bnn_inverse_model(self, name):
         with tf.variable_scope(name, reuse=tf.AUTO_REUSE):
@@ -108,10 +116,12 @@ class Curiosity(object):
                 self.STATE_LATENT_SHAPE, tf.nn.leaky_relu)(features)
             inv1 = tfp.layers.DenseFlipout(
                 100, tf.nn.leaky_relu)(tf.concat([self.phi_st, self.phi_st_], axis=1))
-            self.a_hat = tfp.layers.DenseFlipout(self.ACTION_DIM, tf.nn.softmax)(inv1)
-
+            flipout_layer = tfp.layers.DenseFlipout(self.ACTION_DIM, tf.nn.softmax)
+            self.a_hat = flipout_layer(inv1)
+            losses = flipout_layer.losses
         params = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope=name)
-        return params
+        
+        return params,losses
 
     def reshape_data(self, s_t, s_t_, a_t, from_pixels):
         batch_size = s_t.shape[0]
@@ -142,9 +152,11 @@ class Curiosity(object):
 
             curs = self.sess.run(
                 self.curiosity, {self.inp: s_t, self.inp_1: s_t_, self.inp_at: a_t})
-
-            variance = np.var(curs)
-            return variance
+            
+            # tbd if var or stdev, probably does not make any difference, except for how the value is scaled
+            # var = np.var(curs)
+            stdev = np.std(curs)
+            return stdev
         else:
             return self.sess.run(self.curiosity, {self.inp: s_t, self.inp_1: s_t_, self.inp_at: a_t})
     
@@ -155,7 +167,6 @@ class Curiosity(object):
         return x
 
     def update(self, state, state_, action):
-
         state, state_, action = self.reshape_data(
             state, state_, action, len(self.OBS_DIM) > 2)
         [self.sess.run(self.inv_opt, {self.inp: state, self.inp_1: state_,
