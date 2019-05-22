@@ -111,7 +111,7 @@ class PPO(object):
             self.ACTOR_LR).minimize(self.actor_loss)
 
         self.curiosity = Curiosity(
-            self.sess, self.STATE_LATENT_SHAPE, self.OBS_DIM, self.ACTION_DIM, self.UPDATE_STEP,self.OBS_MEAN,self.OBS_STD,self.inp,MIN_BATCH_SIZE=self.MIN_BATCH_SIZE)
+            self.sess, self.STATE_LATENT_SHAPE, self.OBS_DIM, self.ACTION_DIM, self.UPDATE_STEP,self.OBS_MEAN,self.OBS_STD,self.inp,MIN_BATCH_SIZE=self.MIN_BATCH_SIZE,uncertainty=True)
 
         self.r_rew_tracker = RunningMeanStd()
         self.saver = tf.train.Saver()
