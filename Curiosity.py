@@ -5,7 +5,7 @@ import numpy as np
 from utils import small_convnet,flatten_2d
 
 class Curiosity(object):
-    def __init__(self, sess, STATE_LATENT_SHAPE, OBS_DIM, ACTION_DIM, UPDATE_STEP,OBS_MEAN,OBS_STD,PPO_input,feature_dims=256, INV_LR=.0001, FOR_LR=.0001, ETA=1, uncertainty=True,MIN_BATCH_SIZE=64):
+    def __init__(self, sess, STATE_LATENT_SHAPE, OBS_DIM, ACTION_DIM, UPDATE_STEP,OBS_MEAN,OBS_STD,PPO_input,feature_dims=256, INV_LR=.0001, FOR_LR=.0001, ETA=1, uncertainty=True,MIN_BATCH_SIZE=64,HID_SIZE = 512):
 
         self.sess = sess
         self.uncertainty = uncertainty
@@ -23,6 +23,7 @@ class Curiosity(object):
         self.ETA = ETA
         self.UPDATE_STEP = UPDATE_STEP
         self.MIN_BATCH_SIZE = MIN_BATCH_SIZE
+        self.HID_SIZE = HID_SIZE
 
         self.inp = PPO_input
         self.inp_1 = tf.placeholder(
@@ -84,21 +85,44 @@ class Curiosity(object):
 
     def forward_model(self, name):
         with tf.variable_scope(name, reuse=tf.AUTO_REUSE):
-            f1 = tf.layers.dense(
-                tf.concat([self.inp_at, self.phi_st], axis=1), 200, tf.nn.leaky_relu)
+            def add_ac(x):
+                return tf.concat([self.inp_at,x],axis=1)
+
+            x = tf.layers.dense(
+                add_ac(self.phi_st), self.HID_SIZE, tf.nn.leaky_relu)
+            
+            def residual(x):
+                res = tf.layers.dense(add_ac(x),self.HID_SIZE,activation=tf.nn.leaky_relu)
+                res = tf.layers.dense(add_ac(res),self.HID_SIZE,activation=None)
+                return x + res
+
+            for _ in range(4):
+                x = residual(x)
+
             self.phi_hat_st_ = tf.layers.dense(
-                f1, self.STATE_LATENT_SHAPE, tf.nn.leaky_relu)
+                x, self.STATE_LATENT_SHAPE, tf.nn.leaky_relu)
 
         params = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope=name)
         return params
 
     def bnn_forward_model(self, name):
         with tf.variable_scope(name, reuse=tf.AUTO_REUSE):
-            bf1 = tfp.layers.DenseFlipout(
-                200, tf.nn.leaky_relu)(tf.concat([self.inp_at, self.phi_st], axis=1))
+            def add_ac(x):
+                return tf.concat([self.inp_at,x],axis=1)
+            
+            def residual(x):
+                res = tfp.layers.DenseFlipout(self.HID_SIZE,activation=tf.nn.leaky_relu)(add_ac(x))
+                res = tfp.layers.DenseFlipout(self.HID_SIZE,activation=None)(add_ac(res))
+                return x+res
+
+            x = tfp.layers.DenseFlipout(
+                self.HID_SIZE, tf.nn.leaky_relu)(add_ac(self.phi_st))
+            for _ in range(4):
+                x = residual(x)
+            
             flipout_layer = tfp.layers.DenseFlipout(
                 self.STATE_LATENT_SHAPE, tf.nn.leaky_relu)
-            self.phi_hat_st_ = flipout_layer(bf1)
+            self.phi_hat_st_ = flipout_layer(x)
             losses = flipout_layer.losses
 
         params = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope=name)
