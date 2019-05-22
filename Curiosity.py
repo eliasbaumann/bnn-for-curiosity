@@ -5,7 +5,7 @@ import numpy as np
 from utils import small_convnet,flatten_2d
 
 class Curiosity(object):
-    def __init__(self, sess, STATE_LATENT_SHAPE, OBS_DIM, ACTION_DIM, UPDATE_STEP,OBS_MEAN,OBS_STD,PPO_input,feature_dims=256, INV_LR=.0001, FOR_LR=.0001, ETA=1, uncertainty=True,MIN_BATCH_SIZE=64,HID_SIZE = 512):
+    def __init__(self, sess, STATE_LATENT_SHAPE, OBS_DIM, ACTION_DIM, UPDATE_STEP,OBS_MEAN,OBS_STD,PPO_input,feature_dims=256, INV_LR=.0001, FOR_LR=.0001, ETA=1, uncertainty=True,MIN_BATCH_SIZE=64,HID_SIZE = 256):
 
         self.sess = sess
         self.uncertainty = uncertainty
@@ -104,7 +104,8 @@ class Curiosity(object):
 
         params = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope=name)
         return params
-
+    
+    # I am pretty sure the complexity of this network is too high, maybe reduce if by only using flipout in the end?
     def bnn_forward_model(self, name):
         with tf.variable_scope(name, reuse=tf.AUTO_REUSE):
             def add_ac(x):
@@ -117,8 +118,8 @@ class Curiosity(object):
 
             x = tfp.layers.DenseFlipout(
                 self.HID_SIZE, tf.nn.leaky_relu)(add_ac(self.phi_st))
-            for _ in range(4):
-                x = residual(x)
+            # for _ in range(2):
+            x = residual(x)
             
             flipout_layer = tfp.layers.DenseFlipout(
                 self.STATE_LATENT_SHAPE, tf.nn.leaky_relu)
@@ -131,16 +132,16 @@ class Curiosity(object):
     def bnn_inverse_model(self, name):
         with tf.variable_scope(name, reuse=tf.AUTO_REUSE):
             if(len(self.OBS_DIM) > 2):
-                features = tfp.layers.DenseFlipout(100, tf.nn.leaky_relu)(tf.concat([self.cnn, self.cnn_1], axis=1))
+                features = tfp.layers.DenseFlipout(self.HID_SIZE, tf.nn.leaky_relu)(tf.concat([self.cnn, self.cnn_1], axis=1))
             else:
-                features = tfp.layers.DenseFlipout(100, tf.nn.leaky_relu)(tf.concat([self.inp, self.inp_1], axis=1))
+                features = tfp.layers.DenseFlipout(self.HID_SIZE, tf.nn.leaky_relu)(tf.concat([self.inp, self.inp_1], axis=1))
 
             self.phi_st = tfp.layers.DenseFlipout(
                 self.STATE_LATENT_SHAPE, tf.nn.leaky_relu)(features)
             self.phi_st_ = tfp.layers.DenseFlipout(
                 self.STATE_LATENT_SHAPE, tf.nn.leaky_relu)(features)
             inv1 = tfp.layers.DenseFlipout(
-                100, tf.nn.leaky_relu)(tf.concat([self.phi_st, self.phi_st_], axis=1))
+                self.HID_SIZE, tf.nn.leaky_relu)(tf.concat([self.phi_st, self.phi_st_], axis=1))
             flipout_layer = tfp.layers.DenseFlipout(self.ACTION_DIM, tf.nn.softmax)
             self.a_hat = flipout_layer(inv1)
             losses = flipout_layer.losses

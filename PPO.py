@@ -111,7 +111,8 @@ class PPO(object):
             self.ACTOR_LR).minimize(self.actor_loss)
 
         self.curiosity = Curiosity(
-            self.sess, self.STATE_LATENT_SHAPE, self.OBS_DIM, self.ACTION_DIM, self.UPDATE_STEP,self.OBS_MEAN,self.OBS_STD,self.inp,MIN_BATCH_SIZE=self.MIN_BATCH_SIZE,uncertainty=True)
+            self.sess, self.STATE_LATENT_SHAPE, self.OBS_DIM, self.ACTION_DIM, self.UPDATE_STEP,
+            self.OBS_MEAN,self.OBS_STD,self.inp,MIN_BATCH_SIZE=self.MIN_BATCH_SIZE,uncertainty=True)
 
         self.r_rew_tracker = RunningMeanStd()
         self.saver = tf.train.Saver()
@@ -138,6 +139,7 @@ class PPO(object):
         while not self.COORD.should_stop():
             if GLOBAL_EPISODE < self.EPISODE_MAX:
                 self.UPDATE_EVENT.wait()
+                
                 self.sess.run(self.update_old_policy_op)
                 data = []
                 for _ in range(self.QUEUE.qsize()):
@@ -160,7 +162,6 @@ class PPO(object):
 
                 normalized_adv = self.norm_adv(advantage)
 
-                # update actor and critic in a update loop
                 [self.sess.run([self.actor_train_opt, self.actor_loss], {
                                         self.inp: state, self.action: action, self.full_adv: normalized_adv}) for _ in range(self.UPDATE_STEP)]
                 [self.sess.run([self.critic_train_opt, self.critic_loss], {

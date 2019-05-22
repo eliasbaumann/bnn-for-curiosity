@@ -27,7 +27,7 @@ tf.reset_default_graph()
 EPISODE_MAX = 1000
 MIN_BATCH_SIZE = 128
 
-NUMBER_OF_WORKERS = 128
+NUMBER_OF_WORKERS = 12
 
 # Curiosity stuff:
 STATE_LATENT_SHAPE = 512
