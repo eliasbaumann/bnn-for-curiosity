@@ -6,6 +6,8 @@ import numpy as np
 import PPO
 import gym
 
+from collections import Counter
+
 from utils import make_env
 
 GLOBAL_RUNNING_REWARD = []
@@ -39,8 +41,11 @@ class Worker(object):
             state = np.expand_dims(state, axis=0)
             # state = np.expand_dims(state.flatten(), axis=0)
 
-            episode_reward = 0
-            reward_list = []
+            self.episode_reward = 0
+            self.reward_list = []
+            self.action_list = [] # debug reasons :)
+            self.curiosity_list = [] # debug reasons :)
+
             done = False
             buffer_state, buffer_state_, buffer_action, buffer_reward = [], [], [], []
             for t in range(EPISODE_LENGTH):
@@ -51,6 +56,7 @@ class Worker(object):
 
                 # Add multiple runs until batch size
                 action = self.ppo.get_action(state)
+                self.action_list.append(action)
                 state_, reward, done, _ = self.env.step(action)
                 # if done: reward = -10 # -> should not exist in version which compares to pathak et al.
                 state_ = np.expand_dims(state_, axis=0)
@@ -62,9 +68,10 @@ class Worker(object):
                 
                 curiosity = self.cur.get_reward(state, state_, action)
                 buffer_reward.append(curiosity)
-            
+                self.curiosity_list.append(curiosity)
+
                 state = state_
-                episode_reward += reward
+                self.episode_reward += reward
                 PPO.alterGlobalUpdateCounter(1)  # GLOBAL_UPDATE_COUNTER += 1
 
                 # If enough state,action,reward triples are collected:
@@ -94,22 +101,23 @@ class Worker(object):
                         self.env.close()
                         break
                     if done:
-                        reward_list.append(episode_reward)
-                        episode_reward = 0
-                        break
+                        self.reward_list.append(self.episode_reward)
+                        self.episode_reward = 0
+                        
                 if done:
-                    reward_list.append(episode_reward)
-                    episode_reward = 0
+                    self.reward_list.append(self.episode_reward)
+                    self.episode_reward = 0
                     state = self.env.reset()
                     state = np.expand_dims(state, axis=0)
 
             if len(GLOBAL_RUNNING_REWARD) == 0:
-                GLOBAL_RUNNING_REWARD.append(np.mean(reward_list))
+                GLOBAL_RUNNING_REWARD.append(np.mean(self.reward_list))
             else:
                 GLOBAL_RUNNING_REWARD.append(
-                    GLOBAL_RUNNING_REWARD[-1]*0.9+np.mean(reward_list)*0.1)
+                    GLOBAL_RUNNING_REWARD[-1]*0.9+np.mean(self.reward_list)*0.1)
+            print(self.reward_list)
             PPO.alterGlobalEpisode(1)  # GLOBAL_EPISODE += 1
             print('{0:.1f}%'.format(PPO.GLOBAL_EPISODE/self.EPISODE_MAX*100), '|W%2i' %
-                  self.wid,  '|Mean_Ep_r: %.4g' % np.mean(reward_list), 'Cur_r %.4g' % curiosity)
+                  self.wid,  '|Mean_Ep_r: %.4g' % np.mean(self.reward_list), 'Sum_Cur_r %.4g' % np.sum(self.curiosity_list), 'Actions:',dict(Counter(self.action_list)))
 
         print(self.wid, ': stopped')
