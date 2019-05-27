@@ -195,7 +195,9 @@ class Curiosity(object):
     def update(self, state, state_, action):
         state, state_, action = self.reshape_data(
             state, state_, action, len(self.OBS_DIM) > 2)
-        [self.sess.run(self.inv_opt, {self.inp: state, self.inp_1: state_,
-                                      self.inp_at: action}) for _ in range(self.UPDATE_STEP)]
-        [self.sess.run(self.for_opt, {self.inp: state, self.inp_1: state_,
-                                      self.inp_at: action}) for _ in range(self.UPDATE_STEP)]
+        inv_loss_tmp = self.sess.run([self.inverse_loss,self.inv_opt], {self.inp: state, self.inp_1: state_,
+                                      self.inp_at: action})# for _ in range(self.UPDATE_STEP)]
+        for_loss_tmp = self.sess.run([self.forward_loss,self.for_opt], {self.inp: state, self.inp_1: state_,
+                                      self.inp_at: action})# for _ in range(self.UPDATE_STEP)]
+        # print(inv_loss_tmp) loss does not go down or move anywhere, TODO
+        

@@ -163,10 +163,10 @@ class PPO(object):
 
                 normalized_adv = self.norm_adv(advantage)
 
-                [self.sess.run([self.actor_train_opt, self.actor_loss], {
-                                        self.inp: state, self.action: action, self.full_adv: normalized_adv}) for _ in range(self.UPDATE_STEP)]
-                [self.sess.run([self.critic_train_opt, self.critic_loss], {
-                                        self.inp: state, self.dc_reward: reward}) for _ in range(self.UPDATE_STEP)]
+                self.sess.run([self.actor_train_opt, self.actor_loss], {
+                                        self.inp: state, self.action: action, self.full_adv: normalized_adv})# for _ in range(self.UPDATE_STEP)]
+                self.sess.run([self.critic_train_opt, self.critic_loss], {
+                                        self.inp: state, self.dc_reward: reward})# for _ in range(self.UPDATE_STEP)]
 
                 self.curiosity.update(state, state_, action)
 
