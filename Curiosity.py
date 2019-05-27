@@ -188,7 +188,7 @@ class Curiosity(object):
     
     def get_features(self,x,reuse):
         with tf.variable_scope(self.scope,reuse=reuse):
-            x = (tf.to_float(x) - self.OBS_MEAN) / self.OBS_STD
+            x = (tf.cast(x,tf.float32) - self.OBS_MEAN) / self.OBS_STD
             x = small_convnet(x, nl=tf.nn.leaky_relu, feat_dim=self.feature_dims, last_nl=None,layernormalize=True)
         return x
 
