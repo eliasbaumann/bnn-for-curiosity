@@ -22,15 +22,14 @@ OBS_DIM = env.observation_space.shape
 if(isinstance(env.action_space, gym.spaces.Discrete)):
     ACTION_DIM = env.action_space.n
 
-# hidsize = 512
 tf.reset_default_graph()
 EPISODE_MAX = 1000
 MIN_BATCH_SIZE = 128
-
 NUMBER_OF_WORKERS = 12
 
 # Curiosity stuff:
 STATE_LATENT_SHAPE = 512
+UNCERTAINTY = True
 
 # if __name__=='__main__':
 OBS_MEAN,OBS_STD = get_env_mean_std(GAME_NAME, n_steps=10000)
@@ -46,7 +45,7 @@ QUEUE = queue.Queue()
 
 
 GLOBAL_PPO = PPO(STATE_LATENT_SHAPE, OBS_DIM, ACTION_DIM, UPDATE_EVENT, ROLLING_EVENT, COORD, QUEUE,OBS_MEAN,OBS_STD,
-                 EPISODE_MAX=EPISODE_MAX,MIN_BATCH_SIZE=MIN_BATCH_SIZE)
+                 EPISODE_MAX=EPISODE_MAX,MIN_BATCH_SIZE=MIN_BATCH_SIZE,UNCERTAINTY=False)
 GLOBAL_CURIOSITY = GLOBAL_PPO.curiosity
 workers = [Worker(i, UPDATE_EVENT, ROLLING_EVENT, COORD, QUEUE, GLOBAL_CURIOSITY, GLOBAL_PPO, GAME_NAME,
                   EPISODE_MAX=EPISODE_MAX,MIN_BATCH_SIZE=MIN_BATCH_SIZE
