@@ -44,7 +44,7 @@ class PPO(object):
         params = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope=name)
         return action_probs, params
 
-    def __init__(self, STATE_LATENT_SHAPE, OBS_DIM, ACTION_DIM, UPDATE_EVENT, ROLLING_EVENT, COORD, QUEUE,OBS_MEAN,OBS_STD,feature_dims=256, CRITIC_LR=.0001, ACTOR_LR=.0002, EPSILON=.2, EPISODE_MAX=1000,MIN_BATCH_SIZE=64, UPDATE_STEP=10):
+    def __init__(self, STATE_LATENT_SHAPE, OBS_DIM, ACTION_DIM, UPDATE_EVENT, ROLLING_EVENT, COORD, QUEUE,OBS_MEAN,OBS_STD,feature_dims=256, CRITIC_LR=.0001, ACTOR_LR=.0002, EPSILON=.2, EPISODE_MAX=1000,MIN_BATCH_SIZE=64, UPDATE_STEP=10,UNCERTAINTY=True):
         self.sess = tf.Session()
         self.OBS_DIM = OBS_DIM
         self.ACTION_DIM = ACTION_DIM
@@ -55,6 +55,7 @@ class PPO(object):
         self.UPDATE_STEP = UPDATE_STEP
         self.STATE_LATENT_SHAPE = STATE_LATENT_SHAPE
         self.MIN_BATCH_SIZE = MIN_BATCH_SIZE
+        self.UNCERTAINTY = UNCERTAINTY
 
         self.UPDATE_EVENT = UPDATE_EVENT
         self.ROLLING_EVENT = ROLLING_EVENT
@@ -64,20 +65,20 @@ class PPO(object):
         self.OBS_MEAN =OBS_MEAN
         self.OBS_STD = OBS_STD
         self.feature_dims = feature_dims
-
+        
         self.inp = tf.placeholder(
             tf.float32, (None,)+self.OBS_DIM, name='state')
         if(len(OBS_DIM) > 2):
-            self.inp = tf.div_no_nan(tf.subtract(tf.to_float(self.inp),self.OBS_MEAN),self.OBS_STD)
+            self.inp = tf.div_no_nan(tf.subtract(tf.cast(self.inp,tf.float32),self.OBS_MEAN),self.OBS_STD)
             # self.inp = flatten_2d(self.inp)
             self.cnn = small_convnet(x=self.inp, nl=tf.nn.leaky_relu,
                                      feat_dim=self.feature_dims, last_nl=tf.nn.leaky_relu,
                                      layernormalize=False)
-            crit = tf.layers.dense(
-                self.cnn, 200, tf.nn.relu, kernel_initializer=tf.random_normal_initializer(0., .1))
+            crit = tf.keras.layers.Dense(
+                200, tf.nn.relu, kernel_initializer=tf.random_normal_initializer(0., .1))(self.cnn)
         else:
-            crit = tf.layers.dense(
-                self.inp, 200, tf.nn.relu, kernel_initializer=tf.random_normal_initializer(0., .1))
+            crit = tf.keras.layers.Dense(
+                200, tf.nn.relu, kernel_initializer=tf.random_normal_initializer(0., .1))(self.inp)
         # Critic
         self.value = tf.layers.dense(crit, 1)
         self.dc_reward = tf.placeholder(
@@ -112,7 +113,7 @@ class PPO(object):
 
         self.curiosity = Curiosity(
             self.sess, self.STATE_LATENT_SHAPE, self.OBS_DIM, self.ACTION_DIM, self.UPDATE_STEP,
-            self.OBS_MEAN,self.OBS_STD,self.inp,MIN_BATCH_SIZE=self.MIN_BATCH_SIZE,uncertainty=True)
+            self.OBS_MEAN,self.OBS_STD,self.inp,MIN_BATCH_SIZE=self.MIN_BATCH_SIZE,uncertainty=self.UNCERTAINTY)
 
         self.r_rew_tracker = RunningMeanStd()
         self.saver = tf.train.Saver()
@@ -122,11 +123,11 @@ class PPO(object):
 
     def get_action(self, state):
         action_probs = self.sess.run(self.policy, {self.inp: state})
-        if(np.isnan(action_probs).any()):
-            action = np.random.choice(range(action_probs.shape[1]))
-        else:
-            action = np.random.choice(
-                range(action_probs.shape[1]), p=action_probs.ravel())
+        # removed, if this problem occurs again, fix it some other way:
+        # if(np.isnan(action_probs).any()):
+        #     action = np.random.choice(range(action_probs.shape[1]))
+        
+        action = np.random.choice(range(action_probs.shape[1]), p=action_probs.ravel())
         return action
 
     def get_value(self, state):
