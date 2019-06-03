@@ -1,127 +1,66 @@
 import gym
 import numpy as np
-import cv2
+# import cv2
 from gym import spaces
 from collections import deque
+from PIL import Image
+from copy import copy
 
-class WarpFrame(gym.ObservationWrapper):
-    def __init__(self, env, width=84, height=84, grayscale=True, normalize=False):
-        """Warp frames to 84x84 as done in the Nature paper and later work."""
-        gym.ObservationWrapper.__init__(self, env)
-        self.width = width
-        self.height = height
-        self.grayscale = grayscale
-        self.normalize = normalize
-        if self.grayscale:
-            self.observation_space = spaces.Box(low=0, high=255,
-                                                shape=(self.height, self.width, 1), dtype=np.uint8)
-        else:
-            self.observation_space = spaces.Box(low=0, high=255,
-                                                shape=(self.height, self.width, 3), dtype=np.uint8)
+# class WarpFrame(gym.ObservationWrapper):
+    # def __init__(self, env, width=84, height=84, grayscale=True, normalize=False):
+    #     """Warp frames to 84x84 as done in the Nature paper and later work."""
+    #     gym.ObservationWrapper.__init__(self, env)
+    #     self.width = width
+    #     self.height = height
+    #     self.grayscale = grayscale
+    #     self.normalize = normalize
+    #     if self.grayscale:
+    #         self.observation_space = spaces.Box(low=0, high=255,
+    #                                             shape=(self.height, self.width, 1), dtype=np.uint8)
+    #     else:
+    #         self.observation_space = spaces.Box(low=0, high=255,
+    #                                             shape=(self.height, self.width, 3), dtype=np.uint8)
 
-    def observation(self, frame):
-        if self.grayscale:
-            frame = cv2.cvtColor(frame, cv2.COLOR_RGB2GRAY)
+    # def observation(self, frame):
+    #     if self.grayscale:
+    #         frame = cv2.cvtColor(frame, cv2.COLOR_RGB2GRAY)
 
-        frame = cv2.resize(frame, (self.width, self.height),
-                           interpolation=cv2.INTER_AREA)
-        if(self.normalize):
-            frame = cv2.normalize(
-                frame, None, alpha=0, beta=1, norm_type=cv2.NORM_MINMAX, dtype=cv2.CV_32F)
-        if self.grayscale:
-            frame = np.expand_dims(frame, -1)
-        return frame
+    #     frame = cv2.resize(frame, (self.width, self.height),
+    #                        interpolation=cv2.INTER_AREA)
+    #     if(self.normalize):
+    #         frame = cv2.normalize(
+    #             frame, None, alpha=0, beta=1, norm_type=cv2.NORM_MINMAX, dtype=cv2.CV_32F)
+    #     if self.grayscale:
+    #         frame = np.expand_dims(frame, -1)
+    #     return frame
 
 # taken from OpenAI baselines which requires muJoCo but i dont want to purchase a license just yet
+class ProcessFrame84(gym.ObservationWrapper):
+    def __init__(self, env, crop=True):
+        self.crop = crop
+        super(ProcessFrame84, self).__init__(env)
+        self.observation_space = gym.spaces.Box(low=0, high=255, shape=(84, 84, 1), dtype=np.uint8)
 
-class NoopResetEnv(gym.Wrapper):
-    def __init__(self, env, noop_max=30):
-        """Sample initial states by taking random number of no-ops on reset.
-        No-op is assumed to be action 0.
-        """
-        gym.Wrapper.__init__(self, env)
-        self.noop_max = noop_max
-        self.override_num_noops = None
-        self.noop_action = 0
-        assert env.unwrapped.get_action_meanings()[0] == 'NOOP'
+    def observation(self, obs):
+        return ProcessFrame84.process(obs, crop=self.crop)
 
-    def reset(self, **kwargs):
-        """ Do no-op action for a number of steps in [1, noop_max]."""
-        self.env.reset(**kwargs)
-        if self.override_num_noops is not None:
-            noops = self.override_num_noops
+    @staticmethod
+    def process(frame, crop=True):
+        if frame.size == 210 * 160 * 3:
+            img = np.reshape(frame, [210, 160, 3]).astype(np.float32)
+        elif frame.size == 250 * 160 * 3:
+            img = np.reshape(frame, [250, 160, 3]).astype(np.float32)
+        elif frame.size == 224 * 240 * 3:  # mario resolution
+            img = np.reshape(frame, [224, 240, 3]).astype(np.float32)
         else:
-            noops = self.unwrapped.np_random.randint(1, self.noop_max + 1) #pylint: disable=E1101
-        assert noops > 0
-        obs = None
-        for _ in range(noops):
-            obs, _, done, _ = self.env.step(self.noop_action)
-            if done:
-                obs = self.env.reset(**kwargs)
-        return obs
-    
-    def step(self, ac):
-        return self.env.step(ac)
-
-class LazyFrames(object):
-    def __init__(self, frames):
-        """This object ensures that common frames between the observations are only stored once.
-        It exists purely to optimize memory usage which can be huge for DQN's 1M frames replay
-        buffers.
-        This object should only be converted to numpy array before being passed to the model.
-        You'd not believe how complex the previous solution was."""
-        self._frames = frames
-        self._out = None
-
-    def _force(self):
-        if self._out is None:
-            self._out = np.concatenate(self._frames, axis=-1)
-            self._frames = None
-        return self._out
-
-    def __array__(self, dtype=None):
-        out = self._force()
-        if dtype is not None:
-            out = out.astype(dtype)
-        return out
-
-    def __len__(self):
-        return len(self._force())
-
-    def __getitem__(self, i):
-        return self._force()[..., i]
-    
-
-
-class FrameStack(gym.Wrapper):
-    def __init__(self, env, k):
-        """Stack k last frames.
-        Returns lazy array, which is much more memory efficient.
-        See Also
-        --------
-        baselines.common.atari_wrappers.LazyFrames
-        """
-        gym.Wrapper.__init__(self, env)
-        self.k = k
-        self.frames = deque([], maxlen=k)
-        shp = env.observation_space.shape
-        self.observation_space = spaces.Box(low=0, high=255, shape=(shp[:-1] + (shp[-1] * k,)), dtype=env.observation_space.dtype)
-
-    def reset(self):
-        ob = self.env.reset()
-        for _ in range(self.k):
-            self.frames.append(ob)
-        return self._get_ob()
-
-    def step(self, action):
-        ob, reward, done, info = self.env.step(action)
-        self.frames.append(ob)
-        return self._get_ob(), reward, done, info
-
-    def _get_ob(self):
-        assert len(self.frames) == self.k
-        return LazyFrames(list(self.frames))
-
+            assert False, "Unknown resolution." + str(frame.size)
+        img = img[:, :, 0] * 0.299 + img[:, :, 1] * 0.587 + img[:, :, 2] * 0.114
+        size = (84, 110 if crop else 84)
+        resized_screen = np.array(Image.fromarray(img).resize(size,
+                                                              resample=Image.BILINEAR), dtype=np.uint8)
+        x_t = resized_screen[18:102, :] if crop else resized_screen
+        x_t = np.reshape(x_t, [84, 84, 1])
+        return x_t.astype(np.uint8)
 
 
 
@@ -148,3 +87,39 @@ class MaxAndSkipEnv(gym.Wrapper):
         max_frame = np.max(np.stack(self._obs_buffer), axis=0)
 
         return max_frame, total_reward, done, acc_info
+
+
+class ExtraTimeLimit(gym.Wrapper):
+    def __init__(self, env, max_episode_steps=None):
+        gym.Wrapper.__init__(self, env)
+        self._max_episode_steps = max_episode_steps
+        self._elapsed_steps = 0
+
+    def step(self, action):
+        observation, reward, done, info = self.env.step(action)
+        self._elapsed_steps += 1
+        if self._elapsed_steps > self._max_episode_steps:
+            done = True
+        return observation, reward, done, info
+
+    def reset(self):
+        self._elapsed_steps = 0
+        return self.env.reset()
+
+class AddRandomStateToInfo(gym.Wrapper):
+    def __init__(self, env):
+        """Adds the random state to the info field on the first step after reset
+        """
+        gym.Wrapper.__init__(self, env)
+
+    def step(self, action):
+        ob, r, d, info = self.env.step(action)
+        if self.random_state_copy is not None:
+            info['random_state'] = self.random_state_copy
+            self.random_state_copy = None
+        return ob, r, d, info
+
+    def reset(self, **kwargs):
+        """ Do no-op action for a number of steps in [1, noop_max]."""
+        self.random_state_copy = copy(self.unwrapped.np_random)
+        return self.env.reset(**kwargs)
