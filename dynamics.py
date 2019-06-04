@@ -39,7 +39,7 @@ class Dynamics(object):
             x = unflatten_first_dim(x, sh)
         return x
 
-    def get_loss(self,uncertainty=False):
+    def get_loss(self,uncertainty=True):
         ac = tf.one_hot(self.ac, self.ac_space.n, axis=2)
         sh = tf.shape(ac)
         ac = flatten_two_dims(ac)
@@ -47,27 +47,34 @@ class Dynamics(object):
         def add_ac(x):
             return tf.concat([x, ac], axis=-1)
         
+
         def vstack(x,n):
             return tf.tile(tf.expand_dims(x,0),[n,1,1])
+
+        def stacked_add_ac(x):
+            return tf.concat([x,vstack(ac,50)],axis=-1)
 
         if uncertainty:
             with tf.variable_scope(self.scope):
                 x = flatten_two_dims(self.features)
+                x = add_ac(x)
                 x = vstack(x,50)
-                x = tfp.layers.DenseFlipout(self.hidsize,activation=tf.nn.leaky_relu)(add_ac(x))
+                x = tfp.layers.DenseFlipout(self.hidsize,activation=tf.nn.leaky_relu)(x)
 
                 def residual(x):
-                    res = tfp.layers.DenseFlipout(self.hidsize,activation=tf.nn.leaky_relu)(add_ac(x))
-                    res = tfp.layers.DenseFlipout(self.hidsize,activation=None)(add_ac(res))
+                    res = tfp.layers.DenseFlipout(self.hidsize,activation=tf.nn.leaky_relu)(stacked_add_ac(x))
+                    res = tfp.layers.DenseFlipout(self.hidsize,activation=None)(stacked_add_ac(res))
                     return x+res
                 
-                for _ in range(4):
+                for _ in range(2):
                     x = residual(x)
                 
                 n_out_features = self.out_features.get_shape()[-1].value
-                x = tfp.layers.DenseFlipout(n_out_features,activation=None)(add_ac(x))
+                x = tfp.layers.DenseFlipout(n_out_features,activation=None)(stacked_add_ac(x))
                 x = unflatten_tiled(x,sh)
-            res_x = tf.reduce_mean((x-vstack(tf.stop_gradient(self.out_features),50)))
+            
+            feats = tf.tile(tf.expand_dims(tf.stop_gradient(self.out_features),0),[50,1,1,1])
+            res_x = tf.reduce_mean(x-feats,axis=-1)
             _,res = tf.nn.moments(res_x,axes=[0])
                 
         else:
