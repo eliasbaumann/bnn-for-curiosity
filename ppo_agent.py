@@ -16,6 +16,9 @@ class PpoOptimizer(object):
     def __init__(self,scope,ob_space,ac_space,policy,use_news,gamma,lam,nepochs,nminibatches,lr,cliprange,nsteps_per_seg,nsegs_per_env,ent_coeff,normrew,normadv,ext_coeff,int_coeff,dynamics):
         self.dynamics = dynamics
         with tf.variable_scope(scope):
+
+            self.bootstrapped = True
+
             self.use_recorder = True
             self.n_updates = 0
             self.scope = scope
@@ -180,6 +183,8 @@ class PpoOptimizer(object):
             (self.dynamics.last_ob,
              self.rollout.buf_obs_last.reshape([self.nenvs * self.nsegs_per_env, 1, *self.ob_space.shape]))
         ])
+        if self.bootstrapped:
+            ph_buf.extend([(self.dynamics.mask_placeholder,self.rollout.buf_mask.reshape(-1,10,1))])
         mblossvals = []
 
         for _ in range(self.nepochs):

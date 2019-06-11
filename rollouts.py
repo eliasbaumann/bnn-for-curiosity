@@ -39,6 +39,7 @@ class Rollout(object):
         # self.prev_feat = [None for _ in range(self.nlumps)]
         # self.prev_acs = [None for _ in range(self.nlumps)]
         self.int_rew = np.zeros((nenvs,), np.float32)
+        self.buf_mask = np.empty((6,10,1),np.float32) #TODO this is n_chunks
 
         self.recorder = Recorder(nenvs=self.nenvs, nlumps=self.nlumps) if record_rollouts else None
         self.statlists = defaultdict(lambda: deque([], maxlen=100))
@@ -57,10 +58,12 @@ class Rollout(object):
         self.update_info()
 
     def calculate_reward(self):
-        int_rew = self.dynamics.calculate_loss(ob=self.buf_obs,
+        int_rew,masks = self.dynamics.calculate_loss(ob=self.buf_obs,
                                                last_ob=self.buf_obs_last,
                                                acs=self.buf_acs)
         self.buf_rews[:] = self.reward_fun(int_rew=int_rew, ext_rew=self.buf_ext_rews)
+        if self.dynamics.bootstrapped:
+            self.buf_mask = np.asarray(masks)
 
     def rollout_step(self):
         t = self.step_count % self.nsteps
@@ -91,13 +94,6 @@ class Rollout(object):
             self.buf_acs[sli, t] = acs
             if t > 0:
                 self.buf_ext_rews[sli, t - 1] = prevrews
-            # if t > 0:
-            #     dyn_logp = self.policy.call_reward(prev_feat, pol_feat, prev_acs)
-            #
-            #     int_rew = dyn_logp.reshape(-1, )
-            #
-            #     self.int_rew[sli] = int_rew
-            #     self.buf_rews[sli, t - 1] = self.reward_fun(ext_rew=prevrews, int_rew=int_rew)
             if self.recorder is not None:
                 self.recorder.record(timestep=self.step_count, lump=l, acs=acs, infos=infos, int_rew=self.int_rew[sli],
                                      ext_rew=prevrews, news=news)
@@ -111,12 +107,7 @@ class Rollout(object):
                     self.buf_new_last[sli] = nextnews
                     self.buf_ext_rews[sli, t] = ext_rews
                     _, self.buf_vpred_last[sli], _ = self.policy.get_ac_value_nlp(nextobs)
-                    # dyn_logp = self.policy.call_reward(self.prev_feat[l], last_pol_feat, prev_acs)
-                    # dyn_logp = dyn_logp.reshape(-1, )
-                    # int_rew = dyn_logp
-                    #
-                    # self.int_rew[sli] = int_rew
-                    # self.buf_rews[sli, t] = self.reward_fun(ext_rew=ext_rews, int_rew=int_rew)
+
 
     def update_info(self):
         all_ep_infos = MPI.COMM_WORLD.allgather(self.ep_infos_new)
