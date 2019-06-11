@@ -84,7 +84,7 @@ class Dynamics(object):
 
         # Need to change alot within rollouts etc...
         elif self.bootstrapped:
-            self.n_heads=10
+            self.n_heads=20
 
             def mask_gradients(x,mask):
                 mask_h = tf.abs(mask-1)

@@ -184,7 +184,7 @@ class PpoOptimizer(object):
              self.rollout.buf_obs_last.reshape([self.nenvs * self.nsegs_per_env, 1, *self.ob_space.shape]))
         ])
         if self.bootstrapped:
-            ph_buf.extend([(self.dynamics.mask_placeholder,self.rollout.buf_mask.reshape(-1,10,1))])
+            ph_buf.extend([(self.dynamics.mask_placeholder,self.rollout.buf_mask.reshape(-1,self.dynamics.n_heads,1))])
         mblossvals = []
 
         for _ in range(self.nepochs):

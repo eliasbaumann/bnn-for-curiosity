@@ -39,7 +39,8 @@ class Rollout(object):
         # self.prev_feat = [None for _ in range(self.nlumps)]
         # self.prev_acs = [None for _ in range(self.nlumps)]
         self.int_rew = np.zeros((nenvs,), np.float32)
-        self.buf_mask = np.empty((6,10,1),np.float32) #TODO this is n_chunks
+        if self.dynamics.bootstrapped:
+            self.buf_mask = np.empty((6,self.dynamics.n_heads,1),np.float32) #TODO this is n_chunks
 
         self.recorder = Recorder(nenvs=self.nenvs, nlumps=self.nlumps) if record_rollouts else None
         self.statlists = defaultdict(lambda: deque([], maxlen=100))

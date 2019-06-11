@@ -115,7 +115,7 @@ def make_env_all_params(rank,args):
     return env
 
 if __name__ == '__main__':
-    N_THREADS = 12
+    N_THREADS = 24
     GAME_NAME = 'Seaquest-v0'
     NOOP_MAX = 30
     start_experiment()
