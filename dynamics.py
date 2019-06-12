@@ -8,6 +8,7 @@ from utils import small_convnet, flatten_two_dims, unflatten_first_dim,unflatten
 
 class Dynamics(object):
     def __init__(self, auxiliary_task, feat_dim=None, scope='dynamics'):
+        self.n_chunks = 12
         self.scope = scope
         self.auxiliary_task = auxiliary_task
         self.hidsize = self.auxiliary_task.hidsize
@@ -18,9 +19,6 @@ class Dynamics(object):
         self.ac_space = self.auxiliary_task.ac_space
         self.ob_mean = self.auxiliary_task.ob_mean
         self.ob_std = self.auxiliary_task.ob_std
-        # if predict_from_pixels:
-        #     self.features = self.get_features(self.obs, reuse=False)
-        # else:
         self.features = tf.stop_gradient(self.auxiliary_task.features)
         self.out_features = self.auxiliary_task.next_features
 
@@ -82,7 +80,6 @@ class Dynamics(object):
             res = tf.sqrt(var)
             
 
-        # Need to change alot within rollouts etc...
         elif self.bootstrapped:
             self.n_heads=20
 
@@ -135,19 +132,19 @@ class Dynamics(object):
         return res
 
     def calculate_loss(self, ob, last_ob, acs):
-        n_chunks = 6
+        
         n = ob.shape[0]
-        chunk_size = n // n_chunks
-        assert n % n_chunks == 0
+        chunk_size = n // self.n_chunks
+        assert n % self.n_chunks == 0
         sli = lambda i: slice(i * chunk_size, (i + 1) * chunk_size)
         if self.bootstrapped:
             mask_rv = bernoulli(.5)
-            mask = [mask_rv.rvs(size=(chunk_size,self.n_heads,1)).astype('float32') for _ in range(n_chunks)]
+            mask = [mask_rv.rvs(size=(chunk_size,self.n_heads,1)).astype('float32') for _ in range(self.n_chunks)]
             return np.concatenate([tf.get_default_session().run(self.loss,
                                             {self.obs: ob[sli(i)],self.last_ob: last_ob[sli(i)],
-                                            self.ac: acs[sli(i)],self.mask_placeholder:mask[i]}) for i in range(n_chunks)],0),mask
+                                            self.ac: acs[sli(i)],self.mask_placeholder:mask[i]}) for i in range(self.n_chunks)],0),mask
         else:
             return np.concatenate([tf.get_default_session().run(self.loss,
                                              {self.obs: ob[sli(i)], self.last_ob: last_ob[sli(i)],
-                                              self.ac: acs[sli(i)]}) for i in range(n_chunks)], 0),None
+                                              self.ac: acs[sli(i)]}) for i in range(self.n_chunks)], 0),None
 
