@@ -86,7 +86,7 @@ def get_experiment_environment(**args):
     
     logger_context = logger.scoped_configure(dir=None,
                                              format_strs=['stdout', 'log',
-                                                          'csv'] if MPI.COMM_WORLD.Get_rank() == 0 else ['log'])
+                                                          'csv','tensorboard'] if MPI.COMM_WORLD.Get_rank() == 0 else ['log'])
 
     tf_context = setup_tensorflow_session()
     return logger_context,tf_context
@@ -96,6 +96,7 @@ def get_experiment_environment(**args):
 def start_experiment(**args):
     make_env = partial(make_env_all_params,args=args)
     logger.set_level(logger.DEBUG)
+    
     trainer = Trainer(make_env=make_env,num_timesteps=int(1e8),envs_per_process=N_THREADS)#TODO 
     log,tf_sess = get_experiment_environment(**args)
     with log, tf_sess:
@@ -116,6 +117,6 @@ def make_env_all_params(rank,args):
 
 if __name__ == '__main__':
     N_THREADS = 24
-    GAME_NAME = 'Seaquest-v0'
+    GAME_NAME = 'Riverraid-v0'
     NOOP_MAX = 30
     start_experiment()
