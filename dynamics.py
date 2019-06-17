@@ -7,7 +7,7 @@ from utils import small_convnet, flatten_two_dims, unflatten_first_dim,unflatten
 
 
 class Dynamics(object):
-    def __init__(self, auxiliary_task, feat_dim=None, scope='dynamics'):
+    def __init__(self, auxiliary_task, feat_dim=None,bootstrapped=False,uncertainty=False, scope='dynamics'):
         self.n_chunks = 12
         self.scope = scope
         self.auxiliary_task = auxiliary_task
@@ -22,7 +22,8 @@ class Dynamics(object):
         self.features = tf.stop_gradient(self.auxiliary_task.features)
         self.out_features = self.auxiliary_task.next_features
 
-        self.bootstrapped = True
+        self.bootstrapped = bootstrapped
+        self.uncertainty = uncertainty
 
         with tf.variable_scope(self.scope + "_loss"):
             self.loss = self.get_loss()
@@ -40,7 +41,7 @@ class Dynamics(object):
             x = unflatten_first_dim(x, sh)
         return x
 
-    def get_loss(self,uncertainty=False):
+    def get_loss(self):
         ac = tf.one_hot(self.ac, self.ac_space.n, axis=2)
         sh = tf.shape(ac)
         ac = flatten_two_dims(ac)
@@ -55,7 +56,7 @@ class Dynamics(object):
         def stacked_add_ac(x):
             return tf.concat([x,vstack(ac,50)],axis=-1)
 
-        if uncertainty:
+        if self.uncertainty:
             with tf.variable_scope(self.scope):
                 x = flatten_two_dims(self.features)
                 x = add_ac(x)
@@ -76,9 +77,8 @@ class Dynamics(object):
             
             feats = tf.tile(tf.expand_dims(tf.stop_gradient(self.out_features),0),[50,1,1,1])
             res_x = tf.reduce_mean(x-feats,axis=-1)
-            _,var = tf.nn.moments(res_x,axes=[0])
+            mean,var = tf.nn.moments(res_x,axes=[0])
             res = tf.sqrt(var)
-            
 
         elif self.bootstrapped:
             self.n_heads=20
@@ -110,7 +110,7 @@ class Dynamics(object):
                 self.heads = mask_gradients(self.heads,self.mask_placeholder)
 
             with tf.variable_scope('heads_moments'):
-                _,variance = tf.nn.moments(self.heads,axes=1)
+                mean,variance = tf.nn.moments(self.heads,axes=1)
             
             res = tf.sqrt(variance)
         else:
@@ -129,6 +129,7 @@ class Dynamics(object):
                 x = tf.layers.dense(add_ac(x), n_out_features, activation=None)
                 x = unflatten_first_dim(x, sh)
             res = tf.reduce_mean((x - tf.stop_gradient(self.out_features)) ** 2, -1)
+            
         return res
 
     def calculate_loss(self, ob, last_ob, acs):
@@ -143,6 +144,10 @@ class Dynamics(object):
             return np.concatenate([tf.get_default_session().run(self.loss,
                                             {self.obs: ob[sli(i)],self.last_ob: last_ob[sli(i)],
                                             self.ac: acs[sli(i)],self.mask_placeholder:mask[i]}) for i in range(self.n_chunks)],0),mask
+        # if self.uncertainty:
+        #     return np.concatenate([tf.get_default_session().run([self.loss,self.addit_loss],
+        #                                      {self.obs: ob[sli(i)], self.last_ob: last_ob[sli(i)],
+        #                                       self.ac: acs[sli(i)]}) for i in range(self.n_chunks)], 0),None
         else:
             return np.concatenate([tf.get_default_session().run(self.loss,
                                              {self.obs: ob[sli(i)], self.last_ob: last_ob[sli(i)],

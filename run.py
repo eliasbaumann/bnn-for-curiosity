@@ -31,7 +31,7 @@ class Trainer(object):
         self.feature_extractor = InverseDynamics(policy=self.policy,
                                                  feat_dim=512,
                                                  layernormalize = 0) # DEFAULT is 0 dont know hwat it does
-        self.dynamics = Dynamics(auxiliary_task = self.feature_extractor,feat_dim=512)
+        self.dynamics = Dynamics(auxiliary_task = self.feature_extractor,uncertainty=True,bootstrapped=False,feat_dim=512)
         self.agent = PpoOptimizer(
             scope='ppo',
             ob_space = self.ob_space,
@@ -41,7 +41,7 @@ class Trainer(object):
             gamma = .99,
             lam = .95,
             nepochs = 3,
-            nminibatches = 8,
+            nminibatches = 6,
             lr = 1e-4,
             cliprange = .1,
             nsteps_per_seg = 128, 

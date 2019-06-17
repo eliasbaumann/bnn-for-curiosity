@@ -17,7 +17,7 @@ class CnnPolicy(object):
             self.ac_pdtype = make_pdtype(ac_space)
             self.placeholder_observation = tf.placeholder(dtype=tf.int32,shape=(None,None) + ob_space.shape,name='observation')
             self.placeholder_action = self.ac_pdtype.sample_placeholder([None,None],name='action')
-            self.pd = self.vpred = None #What is
+            self.pd = self.vpred = None 
             self.scope = scope
             pdparamsize = self.ac_pdtype.param_shape()[0]
 
