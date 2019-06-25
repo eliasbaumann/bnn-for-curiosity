@@ -18,7 +18,7 @@ class PpoOptimizer(object):
         with tf.variable_scope(scope):
 
             self.bootstrapped = self.dynamics.bootstrapped
-            self.uncertainty = self.dynamics.uncertainty
+            self.flipout = self.dynamics.flipout
 
             self.use_recorder = True
             self.n_updates = 0
@@ -49,7 +49,7 @@ class PpoOptimizer(object):
             self.placeholder_lr = tf.placeholder(tf.float32, [])
             self.placeholder_cliprange = tf.placeholder(tf.float32, [])
 
-            # if self.uncertainty:
+            # if self.flipout:
             #     self.placeholder_dyn_mean = tf.placeholder(tf.float32, [None,None])
             #     self.dyn_mean = tf.reduce_max(self.placeholder_dyn_mean)
 
@@ -70,7 +70,8 @@ class PpoOptimizer(object):
             approxkl = .5 * tf.reduce_mean(tf.square(neglogpa - self.placeholder_oldnlp))
             clipfrac = tf.reduce_mean(tf.to_float(tf.abs(polgrad_losses2 - polgrad_loss_surr) > 1e-6))
 
-            self.total_loss = polgrad_loss + entropy_loss + vf_loss
+            self.total_loss = polgrad_loss + entropy_loss + vf_loss + tf.reduce_sum(tf.get_collection(tf.GraphKeys.REGULARIZATION_LOSSES))
+            self.dropout_rates = tf.get_collection('DROPOUT_RATES')
             self.to_report = {'tot': self.total_loss, 'pg': polgrad_loss, 'vf': vf_loss, 'ent': entropy, 
             'approxkl': approxkl, 'clipfrac': clipfrac}
 
@@ -117,7 +118,7 @@ class PpoOptimizer(object):
         if self.normrew:
             self.rff = RewardForwardFilter(self.gamma)
             self.rff_rms = RunningMeanStd()
-            # if self.uncertainty:
+            # if self.flipout:
             #     self.rff2 = RewardForwardFilter(self.gamma)
             #     self.rff_rms2 = RunningMeanStd()
 
@@ -134,10 +135,9 @@ class PpoOptimizer(object):
         nsteps = self.rollout.nsteps
         lastgaelam = 0
         for t in range(nsteps - 1, -1, -1):  # nsteps-2 ... 0
-            nextnew = 0
-            # nextnew = self.rollout.buf_news[:, t + 1] if t + 1 < nsteps else self.rollout.buf_new_last
-            # if not use_news:
-            #     nextnew = 0
+            nextnew = self.rollout.buf_news[:, t + 1] if t + 1 < nsteps else self.rollout.buf_new_last
+            if not use_news:
+                nextnew = 0
             nextvals = self.rollout.buf_vpreds[:, t + 1] if t + 1 < nsteps else self.rollout.buf_vpred_last
             nextnotnew = 1 - nextnew
             delta = rews[:, t] + gamma * nextvals * nextnotnew - self.rollout.buf_vpreds[:, t]
@@ -147,13 +147,6 @@ class PpoOptimizer(object):
     def update(self):
         if self.normrew:
             rffs = np.array([self.rff.update(rew) for rew in self.rollout.buf_rews.T])
-            # CUrrently trying some stuff
-            # if self.uncertainty:
-            #     rffs2 = np.array([self.rff2.update(rew) for rew in self.rollout.buf_dyn_rew.T])
-            #     rffs_mean, rffs_std, rffs_count = mpi_moments(rffs2.ravel())
-            #     self.rff_rms2.update_from_moments(rffs_mean, rffs_std ** 2, rffs_count)
-            #     self.buf_n_dyn_rew = self.rollout.buf_dyn_rew / np.sqrt(self.rff_rms2.var)
-
             rffs_mean, rffs_std, rffs_count = mpi_moments(rffs.ravel())
             self.rff_rms.update_from_moments(rffs_mean, rffs_std ** 2, rffs_count)
             rews = self.rollout.buf_rews / np.sqrt(self.rff_rms.var)
@@ -174,7 +167,8 @@ class PpoOptimizer(object):
         )
         if self.rollout.best_ext_ret is not None:
             info['best_ext_ret'] = self.rollout.best_ext_ret
-        # if self.uncertainty:
+        
+        # if self.flipout:
         #     info['dyn_mean'] = np.mean(self.rollout.buf_dyn_rew)
         # normalize advantages
         if self.normadv:
@@ -203,7 +197,7 @@ class PpoOptimizer(object):
             (self.dynamics.last_ob,
              self.rollout.buf_obs_last.reshape([self.nenvs * self.nsegs_per_env, 1, *self.ob_space.shape]))
         ])
-        # if self.uncertainty:
+        # if self.flipout:
         #     ph_buf.extend([(self.placeholder_dyn_mean, resh(self.buf_n_dyn_rew))])
 
         if self.bootstrapped:
@@ -217,6 +211,8 @@ class PpoOptimizer(object):
                 mbenvinds = envinds[start:end]
                 fd = {ph: buf[mbenvinds] for (ph, buf) in ph_buf}
                 fd.update({self.placeholder_lr: self.lr, self.placeholder_cliprange: self.cliprange})
+                if self.dynamics.dropout:
+                    fd.update({self.dynamics.is_training: True})
                 mblossvals.append(tf.get_default_session().run(self._losses + (self._train,), fd)[:-1])
 
         mblossvals = [mblossvals[0]]

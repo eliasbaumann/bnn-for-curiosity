@@ -26,7 +26,7 @@ class Rollout(object):
         self.buf_vpreds = np.empty((nenvs, self.nsteps), np.float32)
         self.buf_nlps = np.empty((nenvs, self.nsteps), np.float32)
         self.buf_rews = np.empty((nenvs, self.nsteps), np.float32)
-        # if self.dynamics.uncertainty:
+        # if self.dynamics.flipout:
         #     self.buf_dyn_rew = np.empty((nenvs,self.nsteps), np.float32)
         self.buf_ext_rews = np.empty((nenvs, self.nsteps), np.float32)
         self.buf_acs = np.empty((nenvs, self.nsteps, *self.ac_space.shape), self.ac_space.dtype)
@@ -64,7 +64,7 @@ class Rollout(object):
         int_rew,masks = self.dynamics.calculate_loss(ob=self.buf_obs,
                                                last_ob=self.buf_obs_last,
                                                acs=self.buf_acs)
-        # if self.dynamics.uncertainty:
+        # if self.dynamics.flipout:
         #     # self.buf_dyn_rew[:] = [i[1] for i in int_rew]
         #     # int_rew = [i[0] for i in int_rew]
         #     self.buf_dyn_rew[:] = int_rew[:,1]

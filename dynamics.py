@@ -4,10 +4,17 @@ import tensorflow_probability as tfp
 from scipy.stats import bernoulli
 
 from utils import small_convnet, flatten_two_dims, unflatten_first_dim,unflatten_tiled
-
+from ConcreteDropout import concrete_dropout
 
 class Dynamics(object):
-    def __init__(self, auxiliary_task, feat_dim=None,bootstrapped=False,uncertainty=False, scope='dynamics'):
+    ''' mode can be set to :
+        - 'none'
+        - 'flipout'
+        - 'dropout'
+        - 'bootstrapped'
+         '''
+    def __init__(self, auxiliary_task, feat_dim=None,mode='none', scope='dynamics'):
+        
         self.n_chunks = 12
         self.scope = scope
         self.auxiliary_task = auxiliary_task
@@ -22,8 +29,30 @@ class Dynamics(object):
         self.features = tf.stop_gradient(self.auxiliary_task.features)
         self.out_features = self.auxiliary_task.next_features
 
-        self.bootstrapped = bootstrapped
-        self.uncertainty = uncertainty
+        self.bootstrapped = False
+        self.flipout = False
+        self.dropout = False
+
+        if mode == 'flipout':
+            self.flipout = True
+            print('-----------------------------------')
+            print('using flipout uncertainty as reward')
+            print('-----------------------------------')
+        elif mode == 'dropout':
+            self.dropout = True
+            self.drop_iters = 20
+            print('--------------------------------------------')
+            print('using concrete dropout uncertainty as reward')
+            print('--------------------------------------------')
+        elif mode == 'bootstrapped':
+            self.bootstrapped = True
+            print('----------------------------------------')
+            print('using bootstrapped uncertainty as reward')
+            print('----------------------------------------')
+        else:
+            print('----------------------------------------')
+            print('           Running baseline             ')
+            print('----------------------------------------')
 
         with tf.variable_scope(self.scope + "_loss"):
             self.loss = self.get_loss()
@@ -56,7 +85,7 @@ class Dynamics(object):
         def stacked_add_ac(x):
             return tf.concat([x,vstack(ac,50)],axis=-1)
 
-        if self.uncertainty:
+        if self.flipout:
             with tf.variable_scope(self.scope):
                 x = flatten_two_dims(self.features)
                 x = add_ac(x)
@@ -77,7 +106,7 @@ class Dynamics(object):
             
             feats = tf.tile(tf.expand_dims(tf.stop_gradient(self.out_features),0),[50,1,1,1])
             res_x = tf.reduce_mean(x-feats,axis=-1)
-            mean,var = tf.nn.moments(res_x,axes=[0])
+            _,var = tf.nn.moments(res_x,axes=[0])
             res = tf.sqrt(var)
 
         elif self.bootstrapped:
@@ -110,9 +139,37 @@ class Dynamics(object):
                 self.heads = mask_gradients(self.heads,self.mask_placeholder)
 
             with tf.variable_scope('heads_moments'):
-                mean,variance = tf.nn.moments(self.heads,axes=1)
+                _,var = tf.nn.moments(self.heads,axes=1)
             
-            res = tf.sqrt(variance)
+            res = tf.sqrt(var)
+        elif self.dropout:
+            with tf.variable_scope(self.scope):
+                self.is_training = tf.placeholder(tf.bool,shape=[])
+                self.dropout_params = {'init_min': 0.1, 'init_max': 0.1,
+                      'weight_regularizer': 1e-6, 'dropout_regularizer': 1e-5,
+                      'training': self.is_training}
+                def residual(x):
+                    res,reg = concrete_dropout(x,**self.dropout_params)
+                    res = tf.layers.dense(add_ac(res),self.hidsize,activation=tf.nn.leaky_relu,kernel_regularizer=reg,bias_regularizer=reg)
+                    res,reg = concrete_dropout(res,**self.dropout_params)
+                    res = tf.layers.dense(add_ac(res),self.hidsize,activation=None,kernel_regularizer=reg,bias_regularizer=reg)
+                    return x + res
+                
+                x = flatten_two_dims(self.features)
+                x = add_ac(x)
+                
+                x,reg = concrete_dropout(x,**self.dropout_params)
+                x = tf.layers.dense(add_ac(x),self.hidsize,activation=tf.nn.leaky_relu,kernel_regularizer=reg,bias_regularizer=reg)
+
+                for _ in range(2):
+                    x = residual(x)
+                
+                n_out_features = self.out_features.get_shape()[-1].value
+                x,reg = concrete_dropout(x,**self.dropout_params)
+                x = tf.layers.dense(add_ac(x),n_out_features,activation=None,kernel_regularizer=reg,bias_regularizer=reg)
+                x = unflatten_first_dim(x,sh)
+            res = tf.reduce_mean((x - tf.stop_gradient(self.out_features))**2,-1)
+
         else:
             with tf.variable_scope(self.scope):
                 x = flatten_two_dims(self.features)
@@ -144,7 +201,15 @@ class Dynamics(object):
             return np.concatenate([tf.get_default_session().run(self.loss,
                                             {self.obs: ob[sli(i)],self.last_ob: last_ob[sli(i)],
                                             self.ac: acs[sli(i)],self.mask_placeholder:mask[i]}) for i in range(self.n_chunks)],0),mask
-        # if self.uncertainty:
+
+        if self.dropout:
+            T = 20
+            tmp = np.var([np.concatenate([tf.get_default_session().run(self.loss,
+                                             {self.obs: ob[sli(i)], self.last_ob: last_ob[sli(i)],
+                                              self.ac: acs[sli(i)],self.is_training: False}) for i in range(self.n_chunks)], 0) for _ in range(T)],0)
+            
+            return tmp,None
+        # if self.flipout:
         #     return np.concatenate([tf.get_default_session().run([self.loss,self.addit_loss],
         #                                      {self.obs: ob[sli(i)], self.last_ob: last_ob[sli(i)],
         #                                       self.ac: acs[sli(i)]}) for i in range(self.n_chunks)], 0),None
