@@ -203,12 +203,9 @@ class Dynamics(object):
                                             self.ac: acs[sli(i)],self.mask_placeholder:mask[i]}) for i in range(self.n_chunks)],0),mask
 
         if self.dropout:
-            T = 20
-            tmp = np.var([np.concatenate([tf.get_default_session().run(self.loss,
+            return np.concatenate([tf.get_default_session().run(self.loss,
                                              {self.obs: ob[sli(i)], self.last_ob: last_ob[sli(i)],
-                                              self.ac: acs[sli(i)],self.is_training: False}) for i in range(self.n_chunks)], 0) for _ in range(T)],0)
-            
-            return tmp,None
+                                              self.ac: acs[sli(i)],self.is_training: False}) for i in range(self.n_chunks)], 0),None
         # if self.flipout:
         #     return np.concatenate([tf.get_default_session().run([self.loss,self.addit_loss],
         #                                      {self.obs: ob[sli(i)], self.last_ob: last_ob[sli(i)],

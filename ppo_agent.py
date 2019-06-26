@@ -69,11 +69,15 @@ class PpoOptimizer(object):
             
             approxkl = .5 * tf.reduce_mean(tf.square(neglogpa - self.placeholder_oldnlp))
             clipfrac = tf.reduce_mean(tf.to_float(tf.abs(polgrad_losses2 - polgrad_loss_surr) > 1e-6))
-
-            self.total_loss = polgrad_loss + entropy_loss + vf_loss + tf.reduce_sum(tf.get_collection(tf.GraphKeys.REGULARIZATION_LOSSES))
+            if self.dynamics.dropout:
+                regloss = tf.reduce_sum(tf.get_collection(tf.GraphKeys.REGULARIZATION_LOSSES))
+            else:
+                regloss = 0
+            
+            self.total_loss = polgrad_loss + entropy_loss + vf_loss + regloss
             self.dropout_rates = tf.get_collection('DROPOUT_RATES')
             self.to_report = {'tot': self.total_loss, 'pg': polgrad_loss, 'vf': vf_loss, 'ent': entropy, 
-            'approxkl': approxkl, 'clipfrac': clipfrac}
+            'approxkl': approxkl, 'clipfrac': clipfrac,'regloss':regloss}
 
 
         

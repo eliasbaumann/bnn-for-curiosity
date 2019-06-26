@@ -44,12 +44,14 @@ class CnnPolicy(object):
             x = flatten_two_dims(x)
         with tf.variable_scope(self.scope+'_features',reuse=reuse):
             x = (tf.cast(x,tf.float32)-self.ob_mean) / self.ob_std
-            x = small_convnet(x,nl=self.nl,feat_dim=self.feat_dim,last_nl=None,layernormalize=self.layernormalize)
+            x = small_convnet(x,nl=self.nl,feat_dim=self.feat_dim,last_nl=None,
+                                                layernormalize=self.layernormalize)
         if(x.get_shape().ndims==5):
             x = unflatten_first_dim(x,shape)
         return x
 
     def get_ac_value_nlp(self,ob): #action_value_neglogprob
-        a,vpred,nlp = tf.get_default_session().run([self.a_samp,self.vpred,self.nlp_samp],feed_dict={self.placeholder_observation: ob[:,None]})
+        a,vpred,nlp = tf.get_default_session().run([self.a_samp,self.vpred,self.nlp_samp],
+                                                feed_dict={self.placeholder_observation: ob[:,None]})
         return a[:,0],vpred[:,0],nlp[:,0]
 
