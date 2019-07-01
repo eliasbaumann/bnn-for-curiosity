@@ -39,11 +39,11 @@ class Trainer(object):
             policy = self.policy,
             use_news = 0,
             gamma = .99,
-            lam = .95,
+            lam = .95, #TODO Change this for potentially vastly different results
             nepochs = 3,
             nminibatches = 16,
             lr = 1e-4,
-            cliprange = .1,
+            cliprange = .1, #TODO Change this as well
             nsteps_per_seg = 256, 
             nsegs_per_env = 1,
             ent_coeff = .001,

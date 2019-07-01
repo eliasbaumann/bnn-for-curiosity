@@ -7,11 +7,7 @@ from utils import small_convnet, flatten_two_dims, unflatten_first_dim,unflatten
 from ConcreteDropout import concrete_dropout
 
 class Dynamics(object):
-    ''' mode can be set to :
-        - 'none'
-        - 'flipout'
-        - 'dropout'
-        - 'bootstrapped'
+    ''' mode can be set to : ['none','flipout','dropout','bootstrapped']
          '''
     def __init__(self, auxiliary_task, feat_dim=None,mode='none', scope='dynamics'):
         
