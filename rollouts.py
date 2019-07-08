@@ -63,9 +63,10 @@ class Rollout(object):
     def calculate_reward(self):
         T = 20
         if self.dynamics.dropout:
-            int_rew = np.var([self.dynamics.calculate_loss(ob=self.buf_obs,
+            rew_ar = [self.dynamics.calculate_loss(ob=self.buf_obs,
                                                last_ob=self.buf_obs_last,
-                                               acs=self.buf_acs)[0] for i in range(T)])
+                                               acs=self.buf_acs)[0] for i in range(T)]
+            int_rew = np.var(rew_ar) + np.mean(rew_ar)
             masks = None
         else:
             int_rew,masks = self.dynamics.calculate_loss(ob=self.buf_obs,

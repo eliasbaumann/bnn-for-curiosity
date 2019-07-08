@@ -141,7 +141,7 @@ class Dynamics(object):
         elif self.dropout:
             with tf.variable_scope(self.scope):
                 self.is_training = tf.placeholder(tf.bool,shape=[])
-                self.dropout_params = {'init_min': 0.1, 'init_max': 0.1,
+                self.dropout_params = {'init_min': 0.5, 'init_max': 0.5,
                       'weight_regularizer': 1e-6, 'dropout_regularizer': 1e-5,
                       'training': self.is_training}
                 def residual(x):

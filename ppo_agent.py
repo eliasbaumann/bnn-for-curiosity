@@ -57,7 +57,7 @@ class PpoOptimizer(object):
             entropy = tf.reduce_mean(self.policy.pd.entropy())
             vpred = self.policy.vpred
 
-            c1 = 1
+            c1 = .5
 
             vf_loss = c1* tf.reduce_mean(tf.square(vpred - self.placeholder_ret))
             ratio = tf.exp(self.placeholder_oldnlp - neglogpa)
@@ -73,13 +73,17 @@ class PpoOptimizer(object):
             clipfrac = tf.reduce_mean(tf.to_float(tf.abs(polgrad_losses2 - polgrad_loss_surr) > 1e-6))
             if self.dynamics.dropout:
                 regloss = tf.reduce_sum(tf.get_collection(tf.GraphKeys.REGULARIZATION_LOSSES))
+                self.total_loss = polgrad_loss + entropy_loss + vf_loss - regloss #TODO i tried with negative for fun
+                self.to_report = {'tot': self.total_loss, 'pg': polgrad_loss, 'vf': vf_loss, 'ent': entropy, 
+                'approxkl': approxkl, 'clipfrac': clipfrac,'regloss':regloss}
+                self.dropout_rates = tf.get_collection('DROPOUT_RATES')
             else:
-                regloss = 0
+                self.total_loss = polgrad_loss + entropy_loss + vf_loss
+                self.to_report = {'tot': self.total_loss, 'pg': polgrad_loss, 'vf': vf_loss, 'ent': entropy, 
+                'approxkl': approxkl, 'clipfrac': clipfrac}
             
-            self.total_loss = polgrad_loss + entropy_loss + vf_loss - regloss #TODO i tried with negative for fun
-            self.dropout_rates = tf.get_collection('DROPOUT_RATES')
-            self.to_report = {'tot': self.total_loss, 'pg': polgrad_loss, 'vf': vf_loss, 'ent': entropy, 
-            'approxkl': approxkl, 'clipfrac': clipfrac,'regloss':regloss}
+            
+            
 
 
         

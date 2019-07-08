@@ -12,6 +12,7 @@ from dynamics import Dynamics
 from ppo_agent import PpoOptimizer
 
 import os
+from datetime import datetime
 
 from baselines import logger
 from baselines.common import set_global_seeds
@@ -30,8 +31,8 @@ class Trainer(object):
         self.policy = CnnPolicy(scope='cnn_pol',ob_space = self.ob_space,ac_space=self.ac_space,hidsize=512,feat_dim=512,ob_mean=self.ob_mean,ob_std = self.ob_std,layernormalize=False,nl=tf.nn.leaky_relu)
         self.feature_extractor = InverseDynamics(policy=self.policy,
                                                  feat_dim=512,
-                                                 layernormalize = 0) # DEFAULT is 0 dont know hwat it does
-        self.dynamics = Dynamics(auxiliary_task = self.feature_extractor,mode='dropout',feat_dim=512)
+                                                 layernormalize = 0) 
+        self.dynamics = Dynamics(auxiliary_task = self.feature_extractor,mode=MODE,feat_dim=512)
         self.agent = PpoOptimizer(
             scope='ppo',
             ob_space = self.ob_space,
@@ -39,7 +40,7 @@ class Trainer(object):
             policy = self.policy,
             use_news = 0,
             gamma = .99,
-            lam = .95, #TODO Change this for potentially vastly different results
+            lam = .98, #TODO Change this for potentially vastly different results
             nepochs = 3,
             nminibatches = 16,
             lr = 1e-4,
@@ -83,8 +84,7 @@ def get_experiment_environment(**args):
     set_global_seeds(1234)
     setup_mpi_gpus()
 
-    
-    logger_context = logger.scoped_configure(dir=None,
+    logger_context = logger.scoped_configure(dir='C:/Users/Elias/Desktop/savedunc/'+MODE+'_'+datetime.now().strftime('%Y_%m_%d_%H_%M_%S'),
                                              format_strs=['stdout', 'log',
                                                           'csv','tensorboard'] if MPI.COMM_WORLD.Get_rank() == 0 else ['log'])
 
@@ -119,4 +119,5 @@ if __name__ == '__main__':
     N_THREADS = 24
     GAME_NAME = 'Riverraid-v0'
     NOOP_MAX = 30
+    MODE = 'dropout'
     start_experiment()
