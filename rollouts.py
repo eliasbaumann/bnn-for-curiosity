@@ -26,6 +26,8 @@ class Rollout(object):
         self.buf_vpreds = np.empty((nenvs, self.nsteps), np.float32)
         self.buf_nlps = np.empty((nenvs, self.nsteps), np.float32)
         self.buf_rews = np.empty((nenvs, self.nsteps), np.float32)
+        # for dropout only
+        self.buf_rews_mean = np.empty((nenvs, self.nsteps), np.float32)
         # if self.dynamics.flipout:
         #     self.buf_dyn_rew = np.empty((nenvs,self.nsteps), np.float32)
         self.buf_ext_rews = np.empty((nenvs, self.nsteps), np.float32)
@@ -66,7 +68,8 @@ class Rollout(object):
             rew_ar = [self.dynamics.calculate_loss(ob=self.buf_obs,
                                                last_ob=self.buf_obs_last,
                                                acs=self.buf_acs)[0] for i in range(T)]
-            int_rew = np.var(rew_ar) + np.mean(rew_ar)
+            int_rew = np.var(rew_ar)
+            int_rew_mean = np.mean(rew_ar)
             masks = None
         else:
             int_rew,masks = self.dynamics.calculate_loss(ob=self.buf_obs,
@@ -81,6 +84,9 @@ class Rollout(object):
         self.buf_rews[:] = self.reward_fun(int_rew=int_rew, ext_rew=self.buf_ext_rews)
         if self.dynamics.bootstrapped:
             self.buf_mask = np.asarray(masks)
+        elif self.dynamics.dropout:
+            self.buf_rews_mean[:] = int_rew_mean
+
 
     def rollout_step(self):
         t = self.step_count % self.nsteps

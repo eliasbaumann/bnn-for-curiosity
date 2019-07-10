@@ -73,7 +73,7 @@ class PpoOptimizer(object):
             clipfrac = tf.reduce_mean(tf.to_float(tf.abs(polgrad_losses2 - polgrad_loss_surr) > 1e-6))
             if self.dynamics.dropout:
                 regloss = tf.reduce_sum(tf.get_collection(tf.GraphKeys.REGULARIZATION_LOSSES))
-                self.total_loss = polgrad_loss + entropy_loss + vf_loss - regloss #TODO i tried with negative for fun
+                self.total_loss = polgrad_loss + entropy_loss + vf_loss + regloss #TODO i tried with negative for fun
                 self.to_report = {'tot': self.total_loss, 'pg': polgrad_loss, 'vf': vf_loss, 'ent': entropy, 
                 'approxkl': approxkl, 'clipfrac': clipfrac,'regloss':regloss}
                 self.dropout_rates = tf.get_collection('DROPOUT_RATES')
@@ -128,9 +128,9 @@ class PpoOptimizer(object):
         if self.normrew:
             self.rff = RewardForwardFilter(self.gamma)
             self.rff_rms = RunningMeanStd()
-            # if self.flipout:
-            #     self.rff2 = RewardForwardFilter(self.gamma)
-            #     self.rff_rms2 = RunningMeanStd()
+            if self.dynamics.dropout:
+                self.rff2 = RewardForwardFilter(self.gamma)
+                self.rff_rms2 = RunningMeanStd()
 
         self.step_count = 0
         self.t_last_update = time.time()
@@ -160,6 +160,13 @@ class PpoOptimizer(object):
             rffs_mean, rffs_std, rffs_count = mpi_moments(rffs.ravel())
             self.rff_rms.update_from_moments(rffs_mean, rffs_std ** 2, rffs_count)
             rews = self.rollout.buf_rews / np.sqrt(self.rff_rms.var)
+            if self.dynamics.dropout:
+                rffs2 = np.array([self.rff2.update(rew) for rew in self.rollout.buf_rews_mean.T])
+                rffs2_mean, rffs2_std, rffs2_count = mpi_moments(rffs2.ravel())
+                self.rff_rms2.update_from_moments(rffs2_mean, rffs2_std ** 2, rffs2_count)
+                rews_m = self.rollout.buf_rews_mean / np.sqrt(self.rff_rms2.var)
+                rews = rews_m+rews
+
         else:
             rews = np.copy(self.rollout.buf_rews)
         self.calculate_advantages(rews=rews, use_news=self.use_news, gamma=self.gamma, lam=self.lam)
